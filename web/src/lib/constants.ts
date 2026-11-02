@@ -21,7 +21,7 @@ For commercial licensing, please contact support@quantumnous.com
  */
 
 // System Configuration Defaults
-export const DEFAULT_SYSTEM_NAME = 'AI giá rẻ'
+export const DEFAULT_SYSTEM_NAME = 'LLM'
 export const LOGO_CONTENT_HASH = '740e706f'
 export const FAVICON_CONTENT_HASH = '1af31875'
 export const DEFAULT_LOGO = `/logo.png?v=${LOGO_CONTENT_HASH}`

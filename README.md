@@ -1,6 +1,6 @@
-# NewAPI
+# LLM Gateway
 
-NewAPI là một cổng API AI self-hosted. Ứng dụng nhận request theo các giao thức
+LLM Gateway là một cổng API AI self-hosted. Ứng dụng nhận request theo các giao thức
 phổ biến, xác thực người dùng/API key, chọn kênh upstream phù hợp, chuyển đổi
 định dạng request/response, ghi log và tính quota/billing theo cấu hình hệ thống.
 Source này là fork đã được thu gọn và có các phần mở rộng riêng cho XPiki, Kiro

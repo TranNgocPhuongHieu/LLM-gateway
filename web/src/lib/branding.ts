@@ -1,17 +1,13 @@
-import i18next from 'i18next'
-
-export function getLocalizedSystemName(rawName?: string, lang?: string): string {
-  const currentLang = (lang || i18next.language || 'vi').toLowerCase()
-  const isEn = currentLang.startsWith('en')
-
+export function getLocalizedSystemName(rawName?: string, _lang?: string): string {
   if (
     !rawName ||
     rawName === 'New API' ||
+    rawName === 'LLM' ||
     rawName === 'AI giá rẻ' ||
     rawName === 'AI cheap' ||
     rawName === 'API mới'
   ) {
-    return isEn ? 'AI cheap' : 'AI giá rẻ'
+    return 'LLM'
   }
   return rawName
 }

@@ -1,4 +1,4 @@
-module github.com/QuantumNous/new-api/relaykit
+module github.com/TranNgocPhuongHieu/LLM-gateway/relaykit
 
 go 1.25.1
 

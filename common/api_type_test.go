@@ -1,7 +1,7 @@
 package common
 
 import (
-	"github.com/QuantumNous/new-api/constant"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/constant"
 	"testing"
 )
 

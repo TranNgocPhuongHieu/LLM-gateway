@@ -3,10 +3,10 @@ package controller
 import (
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/constant"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/model"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/setting/operation_setting"
 	"github.com/gin-gonic/gin"
 )
 

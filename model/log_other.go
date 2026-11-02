@@ -5,7 +5,7 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/QuantumNous/new-api/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
 )
 
 const (

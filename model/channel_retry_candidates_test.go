@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/dto"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/dto"
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"

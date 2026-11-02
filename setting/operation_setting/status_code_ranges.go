@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/types"
 )
 
 type StatusCodeRange struct {

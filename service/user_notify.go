@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/model"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/dto"
 )
 
 func NotifyRootUser(t string, subject string, content string) {

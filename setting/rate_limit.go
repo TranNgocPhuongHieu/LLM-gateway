@@ -5,7 +5,7 @@ import (
 	"math"
 	"sync"
 
-	"github.com/QuantumNous/new-api/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
 )
 
 // maxRateLimitDurationSeconds is the largest window the count cap is computed

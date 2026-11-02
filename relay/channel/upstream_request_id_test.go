@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/QuantumNous/new-api/common"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
+	relaycommon "github.com/TranNgocPhuongHieu/LLM-gateway/relay/common"
 	"github.com/gin-gonic/gin"
 )
 

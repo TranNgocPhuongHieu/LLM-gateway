@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/model"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/model"
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"

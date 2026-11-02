@@ -9,12 +9,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/QuantumNous/new-api/constant"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	relayconstant "github.com/QuantumNous/new-api/relay/constant"
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/relaykit/types"
-	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/constant"
+	relaycommon "github.com/TranNgocPhuongHieu/LLM-gateway/relay/common"
+	relayconstant "github.com/TranNgocPhuongHieu/LLM-gateway/relay/constant"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/dto"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/types"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/setting/operation_setting"
 	"github.com/gin-gonic/gin"
 )
 

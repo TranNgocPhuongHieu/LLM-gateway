@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	sharedclaude "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/shared/claude"
-	kitutil "github.com/QuantumNous/new-api/relaykit/relayconvert/kitutil"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/dto"
+	sharedclaude "github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/relayconvert/internal/shared/claude"
+	kitutil "github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/relayconvert/kitutil"
 )
 
 const responsesEventOutputTextDone = "response.output_text.done"

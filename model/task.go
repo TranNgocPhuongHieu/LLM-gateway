@@ -4,9 +4,9 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/pkg/billingexpr"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/constant"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/pkg/billingexpr"
 )
 
 type TaskStatus string

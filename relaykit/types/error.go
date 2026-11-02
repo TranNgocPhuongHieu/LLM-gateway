@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	kitutil "github.com/QuantumNous/new-api/relaykit/relayconvert/kitutil"
+	kitutil "github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/relayconvert/kitutil"
 )
 
 var (

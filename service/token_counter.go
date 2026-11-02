@@ -8,13 +8,13 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/logger"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	constant2 "github.com/QuantumNous/new-api/relay/constant"
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/constant"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/logger"
+	relaycommon "github.com/TranNgocPhuongHieu/LLM-gateway/relay/common"
+	constant2 "github.com/TranNgocPhuongHieu/LLM-gateway/relay/constant"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/dto"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/types"
 
 	"github.com/gin-gonic/gin"
 )

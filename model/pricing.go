@@ -6,12 +6,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/setting/billing_setting"
-	"github.com/QuantumNous/new-api/setting/ratio_setting"
-	"github.com/QuantumNous/new-api/types"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/constant"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/dto"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/setting/billing_setting"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/setting/ratio_setting"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/types"
 )
 
 type PricingPluginVariant struct {

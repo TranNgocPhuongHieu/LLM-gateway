@@ -8,9 +8,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/QuantumNous/new-api/pkg/billingexpr"
-	"github.com/QuantumNous/new-api/setting/config"
-	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/pkg/billingexpr"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/setting/config"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/setting/ratio_setting"
 	"github.com/samber/lo"
 )
 

@@ -1,8 +1,8 @@
 package common
 
 import (
-	"github.com/QuantumNous/new-api/relaykit/relayconvert/convmeta"
-	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/relayconvert/convmeta"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/types"
 )
 
 // GuessRelayFormatFromRequest moved to convmeta with the converters; the

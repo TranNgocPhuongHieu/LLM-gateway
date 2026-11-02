@@ -3,7 +3,7 @@ package model
 import (
 	"testing"
 
-	"github.com/QuantumNous/new-api/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
 )
 
 func TestRetiredFeatureOptionsCannotReactivateIntegrations(t *testing.T) {

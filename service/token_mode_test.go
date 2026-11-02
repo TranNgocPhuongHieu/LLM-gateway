@@ -3,9 +3,9 @@ package service
 import (
 	"testing"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/model"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/model"
+	relaycommon "github.com/TranNgocPhuongHieu/LLM-gateway/relay/common"
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )

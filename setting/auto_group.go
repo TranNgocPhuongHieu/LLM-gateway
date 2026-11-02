@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"sync/atomic"
 
-	"github.com/QuantumNous/new-api/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
 )
 
 const DefaultMaxTokenAutoGroups = 5

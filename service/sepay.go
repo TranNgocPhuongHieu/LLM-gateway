@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/QuantumNous/new-api/model"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/model"
 	"github.com/shopspring/decimal"
 )
 

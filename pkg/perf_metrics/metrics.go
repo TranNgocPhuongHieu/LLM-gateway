@@ -9,10 +9,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/model"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/setting/perf_metrics_setting"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/model"
+	relaycommon "github.com/TranNgocPhuongHieu/LLM-gateway/relay/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/setting/perf_metrics_setting"
 )
 
 var hotBuckets sync.Map

@@ -1,8 +1,8 @@
 package relay
 
 import (
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/relaykit/types"
+	relaycommon "github.com/TranNgocPhuongHieu/LLM-gateway/relay/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/types"
 )
 
 func newAPIErrorFromParamOverride(err error) *types.NewAPIError {

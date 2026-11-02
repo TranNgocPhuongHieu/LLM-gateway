@@ -5,8 +5,8 @@ import (
 	"math"
 	"strings"
 
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/dto"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/types"
 )
 
 type ClaudeRender struct {

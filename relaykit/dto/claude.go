@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	kitutil "github.com/QuantumNous/new-api/relaykit/relayconvert/kitutil"
-	"github.com/QuantumNous/new-api/relaykit/types"
+	kitutil "github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/relayconvert/kitutil"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/types"
 )
 
 type ClaudeMetadata struct {

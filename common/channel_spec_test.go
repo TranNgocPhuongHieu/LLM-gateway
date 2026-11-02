@@ -3,7 +3,7 @@ package common
 import (
 	"testing"
 
-	"github.com/QuantumNous/new-api/constant"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/constant"
 )
 
 func TestGetChannelSpecMatchesExistingChannelContracts(t *testing.T) {

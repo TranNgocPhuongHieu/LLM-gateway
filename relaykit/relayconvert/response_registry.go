@@ -8,15 +8,15 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	"github.com/QuantumNous/new-api/relaykit/relayconvert/convmeta"
-	claudemessages "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/claude_messages"
-	geminichat "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/gemini_chat"
-	oaichat "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/oai_chat"
-	oairesponses "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/oai_responses"
-	"github.com/QuantumNous/new-api/relaykit/relayconvert/internal/toolconv"
-	kitutil "github.com/QuantumNous/new-api/relaykit/relayconvert/kitutil"
-	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/dto"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/relayconvert/convmeta"
+	claudemessages "github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/relayconvert/internal/claude_messages"
+	geminichat "github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/relayconvert/internal/gemini_chat"
+	oaichat "github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/relayconvert/internal/oai_chat"
+	oairesponses "github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/relayconvert/internal/oai_responses"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/relayconvert/internal/toolconv"
+	kitutil "github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/relayconvert/kitutil"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/types"
 )
 
 type ResponseConverterFunc func(c context.Context, info convmeta.Meta, response any) (any, *dto.Usage, error)

@@ -13,11 +13,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/logger"
-	"github.com/QuantumNous/new-api/model"
-	perfmetrics "github.com/QuantumNous/new-api/pkg/perf_metrics"
-	"github.com/QuantumNous/new-api/service"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/logger"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/model"
+	perfmetrics "github.com/TranNgocPhuongHieu/LLM-gateway/pkg/perf_metrics"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/service"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )

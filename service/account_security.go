@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"html"
 
-	"github.com/QuantumNous/new-api/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
 )
 
 // NotifyAccountSecurityChange never includes credentials or tokens. The caller

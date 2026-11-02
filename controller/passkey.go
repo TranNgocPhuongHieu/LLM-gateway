@@ -7,12 +7,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/middleware"
-	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/service"
-	passkeysvc "github.com/QuantumNous/new-api/service/passkey"
-	"github.com/QuantumNous/new-api/setting/system_setting"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/middleware"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/model"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/service"
+	passkeysvc "github.com/TranNgocPhuongHieu/LLM-gateway/service/passkey"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/setting/system_setting"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-webauthn/webauthn/protocol"

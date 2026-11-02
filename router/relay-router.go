@@ -1,10 +1,10 @@
 package router
 
 import (
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/controller"
-	"github.com/QuantumNous/new-api/middleware"
-	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/constant"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/controller"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/middleware"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/types"
 
 	"github.com/gin-gonic/gin"
 )

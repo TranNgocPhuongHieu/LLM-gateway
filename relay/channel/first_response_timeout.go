@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
-	common2 "github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	relayconstant "github.com/QuantumNous/new-api/relay/constant"
-	"github.com/QuantumNous/new-api/relaykit/types"
+	common2 "github.com/TranNgocPhuongHieu/LLM-gateway/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/constant"
+	relaycommon "github.com/TranNgocPhuongHieu/LLM-gateway/relay/common"
+	relayconstant "github.com/TranNgocPhuongHieu/LLM-gateway/relay/constant"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/types"
 )
 
 func isReasoningModelName(name string) bool {

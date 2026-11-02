@@ -1,10 +1,10 @@
 package relay
 
 import (
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/relay/channel"
-	"github.com/QuantumNous/new-api/relay/channel/claude"
-	"github.com/QuantumNous/new-api/relay/channel/openai"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/constant"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relay/channel"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relay/channel/claude"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relay/channel/openai"
 )
 
 func GetAdaptor(apiType int) channel.Adaptor {

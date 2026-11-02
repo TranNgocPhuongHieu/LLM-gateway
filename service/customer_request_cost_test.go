@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/QuantumNous/new-api/model"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/model"
 )
 
 func TestCustomerRequestCostIncludesXPikiBefore9router(t *testing.T) {

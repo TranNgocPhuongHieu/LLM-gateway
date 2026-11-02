@@ -6,12 +6,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/model"
-	relaychannel "github.com/QuantumNous/new-api/relay/channel"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/service"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/constant"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/model"
+	relaychannel "github.com/TranNgocPhuongHieu/LLM-gateway/relay/channel"
+	relaycommon "github.com/TranNgocPhuongHieu/LLM-gateway/relay/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/service"
 
 	"github.com/gin-gonic/gin"
 )

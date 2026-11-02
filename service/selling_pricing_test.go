@@ -4,8 +4,8 @@ import (
 	"math"
 	"testing"
 
-	"github.com/QuantumNous/new-api/pkg/billingexpr"
-	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/pkg/billingexpr"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/dto"
 )
 
 // Quantitative pricing tests required by user specifications:

@@ -3,8 +3,8 @@ package model
 import (
 	"slices"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/setting/ratio_setting"
 )
 
 func IsChannelEnabledForGroupModel(group string, modelName string, channelID int) bool {

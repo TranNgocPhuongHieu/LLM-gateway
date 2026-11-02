@@ -5,12 +5,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/logger"
-	"github.com/QuantumNous/new-api/model"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/relaykit/types"
-	"github.com/QuantumNous/new-api/setting/model_setting"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/logger"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/model"
+	relaycommon "github.com/TranNgocPhuongHieu/LLM-gateway/relay/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/types"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/setting/model_setting"
 
 	"github.com/shopspring/decimal"
 

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/QuantumNous/new-api/logger"
-	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/logger"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/types"
 	"github.com/gin-gonic/gin"
 )
 

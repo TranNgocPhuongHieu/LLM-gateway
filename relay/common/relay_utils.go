@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/QuantumNous/new-api/constant"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/constant"
 
 	"github.com/gin-gonic/gin"
 )

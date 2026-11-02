@@ -3,7 +3,7 @@ package service
 import (
 	"errors"
 
-	"github.com/QuantumNous/new-api/model"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/model"
 )
 
 // ---------------------------------------------------------------------------

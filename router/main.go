@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/controller"
-	"github.com/QuantumNous/new-api/middleware"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/controller"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/middleware"
 
 	"github.com/gin-gonic/gin"
 )

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/setting/config"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/setting/config"
 )
 
 // ---------------------------------------------------------------------------

@@ -5,7 +5,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/QuantumNous/new-api/setting/config"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/setting/config"
 )
 
 type MonitorSetting struct {

@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/QuantumNous/new-api/relaykit/relayconvert/kitutil"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/relayconvert/kitutil"
 )
 
 var (

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/QuantumNous/new-api/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
 )
 
 var ErrImportPricingConflict = errors.New("import pricing changed; reload before saving")

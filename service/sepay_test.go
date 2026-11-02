@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/QuantumNous/new-api/model"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/model"
 )
 
 type sepayTestTransport func(*http.Request) (*http.Response, error)

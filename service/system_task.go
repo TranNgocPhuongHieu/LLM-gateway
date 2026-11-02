@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/logger"
-	"github.com/QuantumNous/new-api/model"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/logger"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/model"
 
 	"github.com/bytedance/gopkg/util/gopool"
 )

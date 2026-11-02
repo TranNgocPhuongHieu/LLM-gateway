@@ -3,9 +3,9 @@ package common
 import (
 	"errors"
 	"fmt"
-	"github.com/QuantumNous/new-api/common"
-	kitreasoning "github.com/QuantumNous/new-api/relaykit/relayconvert/reasoning"
-	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
+	kitreasoning "github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/relayconvert/reasoning"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/types"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 	"net/http"

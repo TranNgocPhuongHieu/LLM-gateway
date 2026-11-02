@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/QuantumNous/new-api/setting/config"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/setting/config"
 )
 
 // PromotionSetting stores event configuration as JSON so administrators can

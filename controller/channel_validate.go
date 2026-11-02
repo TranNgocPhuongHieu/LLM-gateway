@@ -3,8 +3,8 @@ package controller
 import (
 	"fmt"
 
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/model"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/constant"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/model"
 )
 
 // validateChannel is the shared add/update channel validation boundary.

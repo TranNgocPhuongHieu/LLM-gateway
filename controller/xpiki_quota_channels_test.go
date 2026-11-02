@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/QuantumNous/new-api/model"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/model"
 )
 
 func TestXPikiCredentialsHaveFiveKeysAndKeepSharedAliases(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/QuantumNous/new-api/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )

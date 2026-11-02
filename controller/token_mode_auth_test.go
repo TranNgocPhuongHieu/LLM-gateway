@@ -3,7 +3,7 @@ package controller
 import (
 	"testing"
 
-	"github.com/QuantumNous/new-api/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
 )
 
 func TestTokenQuotaModeRequiresRoot(t *testing.T) {

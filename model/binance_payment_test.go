@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
 	"github.com/glebarez/sqlite"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"

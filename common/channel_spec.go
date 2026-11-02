@@ -1,6 +1,6 @@
 package common
 
-import "github.com/QuantumNous/new-api/constant"
+import "github.com/TranNgocPhuongHieu/LLM-gateway/constant"
 
 // ChannelSpec is the static routing contract for one channel type.
 // APIType is -1 when the current checkout has no adaptor mapping.

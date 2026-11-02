@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 
-	rootcommon "github.com/QuantumNous/new-api/common"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	hostreasoning "github.com/QuantumNous/new-api/setting/reasoning"
+	rootcommon "github.com/TranNgocPhuongHieu/LLM-gateway/common"
+	relaycommon "github.com/TranNgocPhuongHieu/LLM-gateway/relay/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/dto"
+	hostreasoning "github.com/TranNgocPhuongHieu/LLM-gateway/setting/reasoning"
 	"github.com/gin-gonic/gin"
 )
 

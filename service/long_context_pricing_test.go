@@ -3,10 +3,10 @@ package service
 import (
 	"testing"
 
-	"github.com/QuantumNous/new-api/pkg/billingexpr"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/relaykit/dto"
-	hosttypes "github.com/QuantumNous/new-api/types"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/pkg/billingexpr"
+	relaycommon "github.com/TranNgocPhuongHieu/LLM-gateway/relay/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/dto"
+	hosttypes "github.com/TranNgocPhuongHieu/LLM-gateway/types"
 )
 
 func TestLongContextPricingUsesTotalInputAndFrozenSnapshot(t *testing.T) {

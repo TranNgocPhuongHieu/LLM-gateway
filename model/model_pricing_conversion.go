@@ -7,12 +7,12 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/setting/billing_setting"
-	"github.com/QuantumNous/new-api/setting/operation_setting"
-	"github.com/QuantumNous/new-api/setting/ratio_setting"
-	hostreasoning "github.com/QuantumNous/new-api/setting/reasoning"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/constant"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/setting/billing_setting"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/setting/operation_setting"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/setting/ratio_setting"
+	hostreasoning "github.com/TranNgocPhuongHieu/LLM-gateway/setting/reasoning"
 	"github.com/shopspring/decimal"
 )
 

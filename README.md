@@ -147,7 +147,7 @@ trị, các route web được redirect sang frontend đó. Mặc định cổng
 # Từ LLM-gateway/source
 go test -mod=readonly -p 2 -timeout 90s ./...
 go test -mod=readonly -p 2 -timeout 90s github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/...
-go build -mod=readonly -ldflags '-s -w' -o /tmp/new-api-check .
+go build -mod=readonly -ldflags '-s -w' -o /tmp/llm-gateway-check .
 
 # Frontend
 cd web

@@ -130,7 +130,7 @@ cd web
 bun install --frozen-lockfile
 bun run dev
 
-# Backend (từ NewAPI/source)
+# Backend (từ LLM-gateway/source)
 go run .
 ```
 
@@ -144,7 +144,7 @@ trị, các route web được redirect sang frontend đó. Mặc định cổng
 ## Kiểm tra source
 
 ```sh
-# Từ NewAPI/source
+# Từ LLM-gateway/source
 go test -mod=readonly -p 2 -timeout 90s ./...
 go test -mod=readonly -p 2 -timeout 90s github.com/QuantumNous/new-api/relaykit/...
 go build -mod=readonly -ldflags '-s -w' -o /tmp/new-api-check .

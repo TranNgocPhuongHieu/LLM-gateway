@@ -13,7 +13,7 @@ work.
 
 ## Required first step
 
-From `NewAPI/source`, read `AGENTS.md`, then run the relevant context command
+From `LLM-gateway/source`, read `AGENTS.md`, then run the relevant context command
 before opening large files:
 
 ```bash

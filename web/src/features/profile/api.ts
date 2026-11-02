@@ -1,0 +1,189 @@
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+import { api } from "@/lib/api";
+import { authRequestOptions, authResult } from "@/lib/secure-verification";
+import type { LoginSession } from "@/stores/auth-store";
+
+import { normalizeUserSettings } from "./lib/user-settings";
+import type {
+  ApiResponse,
+  UserProfile,
+  UpdateUserRequest,
+  UpdateUserSettingsRequest,
+  AccountSecurityResult,
+  EmailBindingFlow,
+} from "./types";
+
+// ============================================================================
+// User Profile APIs
+// ============================================================================
+
+/**
+ * Get current user profile
+ */
+export async function getUserProfile(): Promise<ApiResponse<UserProfile>> {
+  const res = await api.get("/api/user/self");
+  return res.data;
+}
+
+/**
+ * Update user profile
+ */
+export async function updateUserProfile(data: UpdateUserRequest): Promise<ApiResponse> {
+  const res = await api.put("/api/user/self", data, {
+    acceptAuthRotation: Boolean(data.password),
+  });
+  return res.data;
+}
+
+export function changeAccountPassword(
+  data: UpdateUserRequest,
+  proofToken: string,
+  signal: AbortSignal,
+): Promise<AccountSecurityResult & { has_password: boolean }> {
+  return authResult(
+    api.put("/api/user/self", data, {
+      ...authRequestOptions,
+      headers: { "X-Security-Proof": proofToken },
+      acceptAuthRotation: true,
+      singleUseAuthorization: true,
+      signal,
+    }),
+  );
+}
+
+/**
+ * Update user settings
+ */
+export async function updateUserSettings(data: UpdateUserSettingsRequest): Promise<ApiResponse> {
+  const profile = await getUserProfile();
+  if (!profile.success || !profile.data) {
+    return { success: false, message: profile.message };
+  }
+  const settings = normalizeUserSettings(profile.data.setting);
+  const res = await api.put("/api/user/setting", { ...settings, ...data });
+  return res.data;
+}
+
+/**
+ * Update interface language preference
+ */
+export async function updateUserLanguage(language: string): Promise<ApiResponse> {
+  const res = await api.put("/api/user/self", { language });
+  return res.data;
+}
+
+/**
+ * Delete user account
+ */
+export function deleteUserAccount(
+  proof: string,
+  signal: AbortSignal,
+): Promise<AccountSecurityResult> {
+  return authResult(
+    api.delete("/api/user/self", {
+      ...authRequestOptions,
+      headers: { "X-Security-Proof": proof },
+      singleUseAuthorization: true,
+      signal,
+    }),
+    "Failed to delete account",
+  );
+}
+
+// ============================================================================
+// Account Binding APIs
+// ============================================================================
+
+/**
+ * Bind email account
+ */
+export function startEmailBinding(
+  email: string,
+  proofToken: string,
+  signal: AbortSignal,
+): Promise<EmailBindingFlow> {
+  return authResult(
+    api.post(
+      "/api/oauth/email/bind/start",
+      { email },
+      {
+        ...authRequestOptions,
+        headers: { "X-Security-Proof": proofToken },
+        singleUseAuthorization: true,
+        signal,
+      },
+    ),
+  );
+}
+
+export function resendEmailBinding(
+  flowToken: string,
+  signal: AbortSignal,
+): Promise<EmailBindingFlow> {
+  return authResult(
+    api.post(
+      "/api/oauth/email/bind/resend",
+      { flow_token: flowToken },
+      {
+        ...authRequestOptions,
+        singleUseAuthorization: true,
+        signal,
+      },
+    ),
+  );
+}
+
+export function bindEmail(
+  flowToken: string,
+  newCode: string,
+  oldCode: string,
+  signal: AbortSignal,
+): Promise<AccountSecurityResult> {
+  return authResult(
+    api.post(
+      "/api/oauth/email/bind",
+      { flow_token: flowToken, new_code: newCode, old_code: oldCode },
+      {
+        ...authRequestOptions,
+        singleUseAuthorization: true,
+        signal,
+      },
+    ),
+  );
+}
+
+// ============================================================================
+// Login Session APIs
+// ============================================================================
+
+export async function getLoginSessions(): Promise<ApiResponse<LoginSession[]>> {
+  const res = await api.get("/api/user/sessions");
+  return res.data;
+}
+
+export async function revokeLoginSession(sid: string): Promise<ApiResponse> {
+  const res = await api.delete(`/api/user/sessions/${encodeURIComponent(sid)}`);
+  return res.data;
+}
+
+export async function revokeOtherLoginSessions(): Promise<ApiResponse> {
+  const res = await api.post("/api/user/sessions/revoke-others");
+  return res.data;
+}

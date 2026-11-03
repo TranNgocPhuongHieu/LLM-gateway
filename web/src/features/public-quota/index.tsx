@@ -110,7 +110,7 @@ function QuotaDashboard({
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               {usage.quota_mode === "token"
                 ? "Key token: input + output + cache được tính một lần."
-                : "Số liệu quota billing của NewAPI."}
+                : "Số liệu quota billing của LLM Gateway."}
             </p>
           </div>
           <button

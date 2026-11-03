@@ -805,7 +805,7 @@ export function useCommonLogsColumns(
         return (
           <span
             className='font-semibold text-emerald-600 dark:text-emerald-400 text-xs tabular-nums'
-            title={t('Phí trừ ví NewAPI, không phải giá vốn XPiki')}
+            title={t('Phí trừ ví LLM Gateway, không phải giá vốn XPiki')}
           >
             {formatLogQuota(log.quota)}
           </span>

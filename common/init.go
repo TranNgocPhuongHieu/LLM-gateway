@@ -25,7 +25,7 @@ var (
 func printHelp() {
 	fmt.Println("LLM Gateway " + Version + " - Self-hosted LLM API gateway.")
 	fmt.Println("Maintainer: LLM - https://github.com/TranNgocPhuongHieu/LLM-gateway")
-	fmt.Println("Usage: newapi [--port <port>] [--log-dir <log directory>] [--version] [--help]")
+	fmt.Println("Usage: llm-gateway [--port <port>] [--log-dir <log directory>] [--version] [--help]")
 }
 
 func InitEnv() {

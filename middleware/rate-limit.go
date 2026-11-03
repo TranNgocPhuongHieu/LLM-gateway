@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
 	"github.com/TranNgocPhuongHieu/LLM-gateway/logger"
@@ -159,7 +160,18 @@ func rateLimitFactory(maxRequestNum int, duration int64, mark string) func(c *gi
 
 func GlobalWebRateLimit() func(c *gin.Context) {
 	if common.GlobalWebRateLimitEnable {
-		return rateLimitFactory(common.GlobalWebRateLimitNum, common.GlobalWebRateLimitDuration, "GW")
+		limit := rateLimitFactory(common.GlobalWebRateLimitNum, common.GlobalWebRateLimitDuration, "GW")
+		return func(c *gin.Context) {
+			// A single page can legitimately request many hashed JS/CSS/font assets.
+			// Rate-limit the HTML and dynamic web routes, but do not turn a burst of
+			// static assets into a broken login page (429 responses for chunks).
+			path := c.Request.URL.Path
+			if strings.HasPrefix(path, "/static/") || path == "/favicon.ico" || path == "/logo.png" {
+				c.Next()
+				return
+			}
+			limit(c)
+		}
 	}
 	return defNext
 }

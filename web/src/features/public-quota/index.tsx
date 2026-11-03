@@ -34,13 +34,29 @@ function expiry(value: number) {
 function summarize(logs: UsageLog[]) {
   const byModel = new Map<
     string,
-    { requests: number; input: number; output: number; quota: number }
+    {
+      requests: number;
+      input: number;
+      cacheRead: number;
+      cacheWrite: number;
+      output: number;
+      quota: number;
+    }
   >();
   for (const log of logs) {
     const model = log.model_name || "Không rõ model";
-    const current = byModel.get(model) ?? { requests: 0, input: 0, output: 0, quota: 0 };
+    const current = byModel.get(model) ?? {
+      requests: 0,
+      input: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      output: 0,
+      quota: 0,
+    };
     current.requests += 1;
-    current.input += Number(log.prompt_tokens) || 0;
+    current.input += Number(log.input_tokens_total) || 0;
+    current.cacheRead += Number(log.cache_read_tokens) || 0;
+    current.cacheWrite += Number(log.cache_write_tokens) || 0;
     current.output += Number(log.completion_tokens) || 0;
     current.quota += Number(log.quota) || 0;
     byModel.set(model, current);
@@ -143,8 +159,17 @@ function QuotaDashboard({
       <div className="grid gap-4 md:grid-cols-4">
         <Stat label="Request" value={formatNumber(rows.length)} />
         <Stat
-          label="Input token"
-          value={formatNumber(rows.reduce((sum, row) => sum + (Number(row.prompt_tokens) || 0), 0))}
+          label="Tổng input"
+          value={formatNumber(rows.reduce((sum, row) => sum + (Number(row.input_tokens_total) || 0), 0))}
+          hint="Đã gồm cache theo giao thức"
+        />
+        <Stat
+          label="Cache đọc"
+          value={formatNumber(rows.reduce((sum, row) => sum + (Number(row.cache_read_tokens) || 0), 0))}
+        />
+        <Stat
+          label="Cache ghi"
+          value={formatNumber(rows.reduce((sum, row) => sum + (Number(row.cache_write_tokens) || 0), 0))}
         />
         <Stat
           label="Output token"
@@ -182,12 +207,14 @@ function QuotaDashboard({
           </select>
         </div>
         <div className="mt-5 overflow-x-auto">
-          <table className="w-full min-w-[620px] text-left text-sm">
+          <table className="w-full min-w-[860px] text-left text-sm">
             <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800">
               <tr>
                 <th className="px-3 py-3">Model</th>
                 <th className="px-3 py-3 text-right">Request</th>
-                <th className="px-3 py-3 text-right">Input</th>
+                <th className="px-3 py-3 text-right">Tổng input</th>
+                <th className="px-3 py-3 text-right">Cache đọc</th>
+                <th className="px-3 py-3 text-right">Cache ghi</th>
                 <th className="px-3 py-3 text-right">Output</th>
                 <th className="px-3 py-3 text-right">Quota</th>
               </tr>
@@ -203,6 +230,8 @@ function QuotaDashboard({
                     <td className="px-3 py-3 font-mono">{name}</td>
                     <td className="px-3 py-3 text-right">{formatNumber(row.requests)}</td>
                     <td className="px-3 py-3 text-right">{formatNumber(row.input)}</td>
+                    <td className="px-3 py-3 text-right">{formatNumber(row.cacheRead)}</td>
+                    <td className="px-3 py-3 text-right">{formatNumber(row.cacheWrite)}</td>
                     <td className="px-3 py-3 text-right">{formatNumber(row.output)}</td>
                     <td className="px-3 py-3 text-right">{formatNumber(row.quota)}</td>
                   </tr>
@@ -221,12 +250,14 @@ function QuotaDashboard({
           <ChevronDown className="size-5 text-slate-400" />
         </div>
         <div className="mt-5 overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left text-sm">
+          <table className="w-full min-w-[980px] text-left text-sm">
             <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800">
               <tr>
                 <th className="px-3 py-3">Thời gian</th>
                 <th className="px-3 py-3">Model</th>
-                <th className="px-3 py-3 text-right">Input</th>
+                <th className="px-3 py-3 text-right">Tổng input</th>
+                <th className="px-3 py-3 text-right">Cache đọc</th>
+                <th className="px-3 py-3 text-right">Cache ghi</th>
                 <th className="px-3 py-3 text-right">Output</th>
                 <th className="px-3 py-3 text-right">Quota</th>
                 <th className="px-3 py-3 text-right">Thời gian xử lý</th>
@@ -242,7 +273,9 @@ function QuotaDashboard({
                     {date.format(new Date(row.created_at * 1000))}
                   </td>
                   <td className="px-3 py-3 font-mono">{row.model_name || "—"}</td>
-                  <td className="px-3 py-3 text-right">{formatNumber(row.prompt_tokens)}</td>
+                  <td className="px-3 py-3 text-right">{formatNumber(row.input_tokens_total)}</td>
+                  <td className="px-3 py-3 text-right">{formatNumber(row.cache_read_tokens)}</td>
+                  <td className="px-3 py-3 text-right">{formatNumber(row.cache_write_tokens)}</td>
                   <td className="px-3 py-3 text-right">{formatNumber(row.completion_tokens)}</td>
                   <td className="px-3 py-3 text-right">{formatNumber(row.quota)}</td>
                   <td className="px-3 py-3 text-right">

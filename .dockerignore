@@ -25,7 +25,7 @@ docs
 /.gopath
 /go.work
 /go.work.sum
-/new-api
+/llm-gateway
 /one-api
 /__debug_bin*
 /web/.tanstack

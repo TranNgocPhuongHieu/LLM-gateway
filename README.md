@@ -75,13 +75,13 @@ Trang `quota-check` có hai nguồn quota:
 - **XPiki**: đọc các channel có base URL XPiki, kiểm tra từng key, lấy quota và
   các biên lai provider để đối soát chi phí token. Các pool GPT/Astra và
   Claude/Opus 5.5 được giữ tách biệt; giá vốn không được suy ra từ khoản trừ
-  ví của NewAPI.
+  ví của LLM Gateway.
 - **Kiro**: gọi `https://kiro.pix4k.com/api/pub/quota` với Bearer key, tổng hợp
   `used_credits`, `limit_credits` và `remaining_credits` cho từng key. Kết quả
   được lưu ở trình duyệt để hiển thị lần kiểm tra gần nhất; thao tác **Kiểm tra**
   mới gọi API upstream.
 
-Request logs XPiki có thể xem lịch sử provider hoặc log NewAPI, ghép attempt và
+Request logs XPiki có thể xem lịch sử provider hoặc log LLM Gateway, ghép attempt và
 fallback khi đủ metadata. Chi phí không đối soát được được giữ là unknown,
 không tự động coi là 0. Dữ liệu quota/read-time reconciliation không sửa log
 hoặc wallet đã lưu.

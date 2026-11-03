@@ -931,7 +931,7 @@ export function PriceManagementView() {
                       <AlertDescription className='text-xs leading-relaxed'>
                         <strong>{t('Selling price note:')}</strong>{' '}
                         {t(
-                          'This is the SELLING PRICE FOR CUSTOMERS. The price displayed in the Models tab and deducted from NewAPI wallets uses this configuration. When saved, new prices take effect immediately for new requests.'
+                          'This is the SELLING PRICE FOR CUSTOMERS. The price displayed in the Models tab and deducted from LLM Gateway wallets uses this configuration. When saved, new prices take effect immediately for new requests.'
                         )}
                       </AlertDescription>
                     </Alert>

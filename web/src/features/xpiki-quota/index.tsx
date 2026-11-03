@@ -1630,11 +1630,11 @@ function XPikiLogsCard(props: { customKeys: CustomKeyItem[] }) {
               </div>
               <div>
                 <CardTitle className='text-base font-semibold'>
-                  {t('Nhật ký yêu cầu NewAPI')}
+                  {t('Nhật ký yêu cầu LLM Gateway')}
                 </CardTitle>
                 <CardDescription className='text-xs'>
                   <span className='block font-medium'>{t('Tự tải lại mỗi 10 giây khi mở bảng log; có thể bấm Tải lại log ngay.')}</span>
-                  {t('Một dòng cho mỗi request khách gửi vào NewAPI: khóa, người dùng, model, kênh xử lý cuối và chuỗi fallback. Input/output là tổng token, cache hiển thị riêng bên dưới.')}
+                  {t('Một dòng cho mỗi request khách gửi vào LLM Gateway: khóa, người dùng, model, kênh xử lý cuối và chuỗi fallback. Input/output là tổng token, cache hiển thị riêng bên dưới.')}
           <span className='block'>{t('Giá vốn chỉ tính các lượt XPiki, đối soát theo token và biên lai; 9router không dùng giá XPiki. Hiển thị quy đổi 1.000 VNĐ = 1 credit, số gốc được giữ nguyên để tính tổng.')}</span>
                   {!!logsData?.quota_errors?.length && (
                     <span className='block text-amber-600'>
@@ -1917,7 +1917,7 @@ function XPikiLogsCard(props: { customKeys: CustomKeyItem[] }) {
             <div className='px-4 py-3 text-xs border-b space-y-1'>
               <div>{t('Tổng giá vốn đã đối soát (trang này)')}: <strong>{formatLogCost(logsData.token_cost_summary.total_vnd)}</strong> · {logsData.token_cost_summary.known_requests} request</div>
               {logsData.token_cost_summary.unknown_requests > 0 && <div className='text-amber-600'>{logsData.token_cost_summary.unknown_requests} {t('request chưa xác minh, chưa được cộng; tổng chưa đầy đủ.')}</div>}
-              <div className='text-muted-foreground'>{t('Lời/lỗ = doanh thu thực nhận từ trang bán − giá vốn của tất cả lượt gọi. Chưa có doanh thu thực nhận tại đây; tiền trừ ví NewAPI không phải doanh thu bán.')}</div>
+              <div className='text-muted-foreground'>{t('Lời/lỗ = doanh thu thực nhận từ trang bán − giá vốn của tất cả lượt gọi. Chưa có doanh thu thực nhận tại đây; tiền trừ ví LLM Gateway không phải doanh thu bán.')}</div>
             </div>
           )}
           {logsError && (
@@ -1948,7 +1948,7 @@ function XPikiLogsCard(props: { customKeys: CustomKeyItem[] }) {
                   {!logsData
                     ? t('Đang tải log cho điều kiện này…')
                     : logsData.incomplete
-                    ? t('Chưa đối soát đủ giá vốn; dữ liệu request lấy từ NewAPI.')
+                    ? t('Chưa đối soát đủ giá vốn; dữ liệu request lấy từ LLM Gateway.')
                     : t('No request logs found')}
                 </div>
               }

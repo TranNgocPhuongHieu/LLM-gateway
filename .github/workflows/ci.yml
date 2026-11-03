@@ -95,3 +95,15 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: git diff --check "$BASE_SHA" HEAD
+
+  ops-check:
+    name: Operations scripts check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Check shell syntax and Compose contract
+        run: |
+          sh -n scripts/smoke-test.sh scripts/deploy.sh

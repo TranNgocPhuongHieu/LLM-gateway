@@ -28,6 +28,17 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Set up Bun for embedded frontend
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.0'
+
+      - name: Build embedded frontend
+        working-directory: web
+        run: |
+          bun install --frozen-lockfile
+          bun run build:check
+
       - name: Run backend tests
         run: go test -mod=readonly -p 2 -timeout 90s ./...
 

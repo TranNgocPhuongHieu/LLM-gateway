@@ -25,6 +25,9 @@ export type UsageLog = {
   request_id?: string;
   content?: string;
   raw_token_usage?: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  input_tokens_total: number;
 };
 
 export async function getPublicQuota(key: string) {
@@ -70,6 +73,26 @@ export async function getPublicQuota(key: string) {
       const metadata = row.other ? JSON.parse(row.other) : {};
       return {
         ...row,
+        cache_read_tokens:
+          typeof metadata.cache_tokens === "number" ? metadata.cache_tokens : 0,
+        cache_write_tokens:
+          typeof metadata.cache_write_tokens === "number"
+            ? metadata.cache_write_tokens
+            : typeof metadata.cache_creation_tokens === "number"
+              ? metadata.cache_creation_tokens
+              : 0,
+        input_tokens_total:
+          typeof metadata.input_tokens_total === "number"
+            ? metadata.input_tokens_total
+            : String(metadata.usage_semantic || "").toLowerCase() === "anthropic"
+              ? (Number(row.prompt_tokens) || 0) +
+                (typeof metadata.cache_tokens === "number" ? metadata.cache_tokens : 0) +
+                (typeof metadata.cache_write_tokens === "number"
+                  ? metadata.cache_write_tokens
+                  : typeof metadata.cache_creation_tokens === "number"
+                    ? metadata.cache_creation_tokens
+                    : 0)
+              : Number(row.prompt_tokens) || 0,
         raw_token_usage:
           typeof metadata.raw_token_usage === "number" ? metadata.raw_token_usage : undefined,
       };

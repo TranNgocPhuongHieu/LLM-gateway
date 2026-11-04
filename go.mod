@@ -1,7 +1,7 @@
 module github.com/TranNgocPhuongHieu/LLM-gateway
 
 // +heroku goVersion go1.18
-go 1.25.1
+go 1.26
 
 require (
 	github.com/Calcium-Ion/go-epay v0.0.4
@@ -41,7 +41,7 @@ require (
 	github.com/thanhpk/randstr v1.0.7
 	github.com/tidwall/gjson v1.20.0
 	github.com/tidwall/sjson v1.2.5
-	github.com/tiktoken-go/tokenizer v0.6.2
+	github.com/tiktoken-go/tokenizer v0.10.0
 	github.com/yapingcat/gomedia v0.0.0-20240906162731-17feea57090c
 	golang.org/x/crypto v0.52.0
 	golang.org/x/image v0.41.0
@@ -61,6 +61,7 @@ require (
 	github.com/ClickHouse/ch-go v0.71.0 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.6.1 // indirect
 	github.com/casbin/govaluate v1.10.0 // indirect
+	github.com/dlclark/regexp2/v2 v2.5.1 // indirect
 	github.com/go-faster/city v1.0.1 // indirect
 	github.com/go-faster/errors v0.7.1 // indirect
 	github.com/hashicorp/go-version v1.8.0 // indirect

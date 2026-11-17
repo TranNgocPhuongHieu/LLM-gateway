@@ -400,11 +400,6 @@ func GetVendorModelCounts() (map[int64]int64, error) {
 	return m, nil
 }
 
-func GetAllModels(offset int, limit int) ([]*Model, error) {
-	models, _, err := SearchModels("", "", "", "", offset, limit)
-	return models, err
-}
-
 // ModelConnection describes an enabled route independently of catalog visibility or price.
 type ModelConnection struct {
 	AbilityWithChannel

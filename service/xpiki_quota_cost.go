@@ -163,10 +163,6 @@ func EnrichUsageLogXPikiCosts(ctx context.Context, logs []*model.Log, credential
 	enrichUsageLogXPikiCostsAtURL(ctx, logs, credentials, XPikiKeyLogsURL, XPikiKeyStatusURL)
 }
 
-func EnrichUsageLogXPikiCostsCachedOnly(logs []*model.Log, credentials []XPikiQuotaCredential) {
-	enrichUsageLogXPikiCostsCachedOnlyAtURL(logs, credentials, XPikiKeyLogsURL, XPikiKeyStatusURL)
-}
-
 func enrichUsageLogXPikiCostsCachedOnlyAtURL(logs []*model.Log, credentials []XPikiQuotaCredential, endpoint string, statusEndpoint ...string) {
 	allowed := make(map[int]bool)
 	for _, cred := range credentials {

@@ -76,12 +76,6 @@ func ReleaseExternalIdentityWithTx(tx *gorm.DB, provider string, userId int) err
 		Delete(&ExternalIdentityClaim{}).Error
 }
 
-func GetUserByTelegramID(telegramID string) (*User, error) {
-	var user User
-	err := DB.Where("telegram_id = ?", telegramID).First(&user).Error
-	return &user, err
-}
-
 // BindTelegramForSessionWithTx preserves single ownership and the session that
 // started the binding. The caller consumes its OAuth flow in this transaction.
 func BindTelegramForSessionWithTx(tx *gorm.DB, identity AuthSessionIdentity, telegramID string) error {

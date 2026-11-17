@@ -345,12 +345,6 @@ func lockNormalizedEmail(tx *gorm.DB, email string) error {
 	return nil
 }
 
-func GetMaxUserId() int {
-	var user User
-	DB.Unscoped().Last(&user)
-	return user.Id
-}
-
 func GetAllUsers(pageInfo *common.PageInfo, sortOptions ...UserSortOptions) (users []*User, total int64, err error) {
 	// Start transaction
 	tx := DB.Begin()
@@ -489,14 +483,6 @@ func GetSelfUserById(id int) (*User, error) {
 	}).First(&profile, "id = ?", id).Error
 	profile.User.HasPassword = profile.HasPassword
 	return &profile.User, err
-}
-
-func DeleteUserById(id int) (err error) {
-	if id == 0 {
-		return errors.New("id 为空！")
-	}
-	user := User{Id: id}
-	return user.Delete()
 }
 
 func HardDeleteUserById(id int) error {
@@ -991,26 +977,6 @@ func GetUniqueUserByEmail(email string) (*User, error) {
 	}
 }
 
-func IsWeChatIdAlreadyTaken(wechatId string) bool {
-	return DB.Unscoped().Where("wechat_id = ?", wechatId).Find(&User{}).RowsAffected == 1
-}
-
-func IsGitHubIdAlreadyTaken(githubId string) bool {
-	return DB.Unscoped().Where("github_id = ?", githubId).Find(&User{}).RowsAffected == 1
-}
-
-func IsDiscordIdAlreadyTaken(discordId string) bool {
-	return DB.Unscoped().Where("discord_id = ?", discordId).Find(&User{}).RowsAffected == 1
-}
-
-func IsOidcIdAlreadyTaken(oidcId string) bool {
-	return DB.Where("oidc_id = ?", oidcId).Find(&User{}).RowsAffected == 1
-}
-
-func IsTelegramIdAlreadyTaken(telegramId string) bool {
-	return DB.Unscoped().Where("telegram_id = ?", telegramId).Find(&User{}).RowsAffected == 1
-}
-
 func ResetUserPasswordByEmail(email string, password string) error {
 	if email == "" || password == "" {
 		return errors.New("邮箱地址或密码为空！")
@@ -1083,11 +1049,6 @@ func GetUserQuota(id int, fromDB bool) (quota int, err error) {
 func GetUserUsedQuota(id int) (quota int, err error) {
 	err = DB.Model(&User{}).Where("id = ?", id).Select("used_quota").Find(&quota).Error
 	return quota, err
-}
-
-func GetUserEmail(id int) (email string, err error) {
-	err = DB.Model(&User{}).Where("id = ?", id).Select("email").Find(&email).Error
-	return email, err
 }
 
 // GetUserGroup gets group from Redis first, falls back to DB if needed
@@ -1228,17 +1189,6 @@ func decreaseUserQuota(id int, quota int) (err error) {
 	return err
 }
 
-func DeltaUpdateUserQuota(id int, delta int) (err error) {
-	if delta == 0 {
-		return nil
-	}
-	if delta > 0 {
-		return IncreaseUserQuota(id, delta, false)
-	} else {
-		return DecreaseUserQuota(id, -delta, false)
-	}
-}
-
 //func GetRootUserEmail() (email string) {
 //	DB.Model(&User{}).Where("role = ?", common.RoleRootUser).Select("email").Find(&email)
 //	return email
@@ -1336,12 +1286,6 @@ func GetUsernameById(id int, fromDB bool) (username string, err error) {
 	}
 
 	return username, nil
-}
-
-func IsLinuxDOIdAlreadyTaken(linuxDOId string) bool {
-	var user User
-	err := DB.Unscoped().Where("linux_do_id = ?", linuxDOId).First(&user).Error
-	return !errors.Is(err, gorm.ErrRecordNotFound)
 }
 
 func (user *User) FillUserByLinuxDOId() error {

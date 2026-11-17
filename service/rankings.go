@@ -135,35 +135,6 @@ var (
 	rankingCache   = map[string]rankingCacheItem{}
 )
 
-func GetRankingsSnapshot(period string) (*RankingsResponse, error) {
-	config, err := rankingConfig(period)
-	if err != nil {
-		return nil, err
-	}
-
-	now := time.Now()
-	rankingCacheMu.Lock()
-	if item, ok := rankingCache[config.id]; ok && now.Before(item.expiresAt) {
-		rankingCacheMu.Unlock()
-		return item.data, nil
-	}
-	rankingCacheMu.Unlock()
-
-	data, err := buildRankingsSnapshot(config, now)
-	if err != nil {
-		return nil, err
-	}
-
-	rankingCacheMu.Lock()
-	rankingCache[config.id] = rankingCacheItem{
-		expiresAt: now.Add(rankingCacheTTL),
-		data:      data,
-	}
-	rankingCacheMu.Unlock()
-
-	return data, nil
-}
-
 func rankingConfig(period string) (rankingPeriodConfig, error) {
 	switch period {
 	case "", "week":

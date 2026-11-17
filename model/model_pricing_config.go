@@ -434,11 +434,6 @@ func UpdateModelPricingWithAudit(changes []ModelPricingChange) ([]ModelPricingAu
 	return auditDetails, nil
 }
 
-func UpdateModelPricing(changes []ModelPricingChange) error {
-	_, err := UpdateModelPricingWithAudit(changes)
-	return err
-}
-
 // UpdateModelPricingOptions keeps legacy single-option callers on the same
 // locking, validation and transaction path as the model-level API.
 func UpdateModelPricingOptions(updates map[string]string) error {

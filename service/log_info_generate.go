@@ -13,7 +13,6 @@ import (
 	relaycommon "github.com/TranNgocPhuongHieu/LLM-gateway/relay/common"
 	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/dto"
 	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/types"
-	hosttypes "github.com/TranNgocPhuongHieu/LLM-gateway/types"
 
 	"github.com/gin-gonic/gin"
 )
@@ -298,17 +297,6 @@ func GenerateClaudeOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 		info.SetPublic("cache_creation_ratio_1h", cacheCreationRatio1h)
 	}
 	return info
-}
-
-func GenerateMjOtherInfo(relayInfo *relaycommon.RelayInfo, priceData hosttypes.PriceData) *model.LogOther {
-	other := model.NewLogOther()
-	other.SetPublic("model_price", priceData.ModelPrice)
-	other.SetPublic("group_ratio", priceData.GroupRatioInfo.GroupRatio)
-	if priceData.GroupRatioInfo.HasSpecialRatio {
-		other.SetPublic("user_group_ratio", priceData.GroupRatioInfo.GroupSpecialRatio)
-	}
-	appendRequestPath(nil, relayInfo, other)
-	return other
 }
 
 // InjectTieredBillingInfo overlays tiered billing fields onto an existing

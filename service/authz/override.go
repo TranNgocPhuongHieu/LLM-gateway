@@ -17,28 +17,6 @@ type overridePolicy struct {
 	Effect   string
 }
 
-func SetUserPermissions(userID int, permissions PermissionsMap) error {
-	e := currentEnforcer()
-	if e == nil {
-		return fmt.Errorf("authz enforcer is not initialized")
-	}
-
-	for resource, actions := range permissions {
-		if !isKnownResource(resource) {
-			continue
-		}
-		if _, err := e.RemoveFilteredPolicy(0, UserSubject(userID), resource); err != nil {
-			return err
-		}
-		for _, policy := range userOverridePolicies(e, resource, actions) {
-			if _, err := e.AddPolicy(UserSubject(userID), policy.Resource, policy.Action, policy.Effect); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 func SetUserPermissionsInTx(tx *gorm.DB, userID int, permissions PermissionsMap) error {
 	e := currentEnforcer()
 	if e == nil {
@@ -88,10 +66,6 @@ func ClearUserPermissionsInTx(tx *gorm.DB, userID int) error {
 		}
 	}
 	return nil
-}
-
-func ClearUserAuthorization(userID int) error {
-	return ClearUserPermissions(userID)
 }
 
 func ClearUserAuthorizationInTx(tx *gorm.DB, userID int) error {

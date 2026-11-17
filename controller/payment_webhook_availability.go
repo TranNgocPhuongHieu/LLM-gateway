@@ -20,10 +20,6 @@ func isStripeTopUpEnabled() bool {
 		strings.TrimSpace(setting.StripePriceId) != ""
 }
 
-func isStripeWebhookConfigured() bool {
-	return strings.TrimSpace(setting.StripeWebhookSecret) != ""
-}
-
 func isStripeWebhookEnabled() bool {
 	return isStripeTopUpEnabled()
 }

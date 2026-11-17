@@ -121,7 +121,7 @@ scripts/      context/inspection helpers cho source tree
 
 ## Chạy local
 
-Yêu cầu toolchain được ghim trong repository: Go `>= 1.25.1`, Bun `1.4.0` theo
+Yêu cầu toolchain được ghim trong repository: Go `>= 1.26`, Bun `1.4.0` theo
 Dockerfile. Không nâng dependency chỉ để chạy kiểm tra.
 
 ```sh

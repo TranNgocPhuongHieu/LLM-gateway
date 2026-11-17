@@ -9,6 +9,7 @@
 - Preserve dirty worktree changes. Treat API routes, persisted JSON keys, DB fields, relay formats, and `web/src/i18n/locales/vi.json` as contracts.
 - Context-first: run the matching command before opening a large file; prefer the output's line numbers over repeated dumps.
 - `relaykit` is a separate Go module; its standard check is `(cd relaykit && go test ./...)`.
+- Naming: the product is `llm-gateway`; `newapi`/`new-api` is the old name. New Docker images, tags, Compose projects and containers use `llm-gateway` with fixed names (e.g. `llm-gateway:candidate`, `llm-gateway:rollback`); never add timestamp/PID suffixes. Do not rename the existing `newapi` Compose project or `new-api-*` containers (deploy guards depend on them). Scripts and tests that build throwaway images must remove them when done.
 
 | Command | Use |
 |---|---|
@@ -66,10 +67,8 @@
 | `web/src/features/channels/components/drawers/channel-mutate-connection-sections.tsx` | `buildChannelConnectionSections` | Typed channel name/key/base URL/auth/override and connection sections. |
 | `web/src/features/channels/components/dialogs/param-override-editor-dialog.tsx` | `ParamOverrideEditorDialog` | Dialog shell for parameter override editing. |
 | `web/src/features/channels/components/dialogs/param-override-types-utils.ts` | Typed presets, types, and pure helpers | Extracted parameter override editor utilities. |
-| `web/src/features/channels/components/dialogs/param-override-subcomponents.tsx` | Typed panel boundary | Extension point for parameter override subcomponents. |
 | `web/src/features/xpiki-quota/index.tsx` | `XPikiQuotaPage`, `XPikiRequestLogsPage` | XPiki quota feature entrypoint. |
 | `web/src/features/xpiki-quota/xpiki-quota-utils.ts` | XPiki formatters and table helpers | Shared quota utility functions. |
-| `web/src/features/xpiki-quota/xpiki-quota-components.tsx` | Typed quota component boundary | Extension point for quota tables/dialogs. |
 | `web/src/i18n/locales/vi.json` | Channel/protocol/base URL/key/validation keys | Vietnamese UI contract. |
 
 ## 3. Project-wide domain map
@@ -105,9 +104,9 @@
 |---|---|---|
 | `model/token.go`, `controller/token.go`, `service/auth_token.go` | token CRUD/auth helpers | API token lifecycle and authentication. |
 | `model/user.go`, `controller/user.go`, `service/auth_session.go` | user/session functions | User identity, sessions, roles and access. |
-| `model/group.go`, `controller/group.go`, `service/group.go` | group functions | Group membership and quota policy. |
-| `model/redemption.go`, `model/topup.go`, `controller/redemption*.go`, `controller/topup*.go` | redemption/topup/payment handlers | Credits, wallet funding, payment callbacks. |
-| `model/user_oauth_binding.go`, `controller/oauth.go` (if present), `controller/secure_verification.go`, `model/passkey.go` | OAuth/verification/passkey | Login and sensitive-operation verification; use actual files from `overview`. |
+| `controller/group.go`, `service/group.go`, `model/prefill_group.go` | group functions | Group membership and quota policy. |
+| `model/redemption.go`, `model/topup.go`, `controller/topup*.go` | redemption/topup/payment handlers | Credits, wallet funding, payment callbacks. |
+| `model/user_oauth_binding.go`, `controller/custom_oauth_provider.go`, `controller/secure_verification.go`, `model/passkey.go` | OAuth/verification/passkey | Login and sensitive-operation verification; use actual files from `overview`. |
 
 ### 3.5 Logs, analytics and system settings
 

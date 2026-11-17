@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
 	goahocorasick "github.com/anknown/ahocorasick"
 )
 
@@ -52,7 +53,7 @@ func InitAc(dict []string) *goahocorasick.Machine {
 	m := new(goahocorasick.Machine)
 	runes := readRunes(dict)
 	if err := m.Build(runes); err != nil {
-		fmt.Println(err)
+		common.SysError("failed to build sensitive word matcher: " + err.Error())
 		return nil
 	}
 	return m

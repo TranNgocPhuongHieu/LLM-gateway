@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
-	"github.com/TranNgocPhuongHieu/LLM-gateway/i18n"
 	"github.com/TranNgocPhuongHieu/LLM-gateway/logger"
 	"github.com/TranNgocPhuongHieu/LLM-gateway/model"
 	"github.com/TranNgocPhuongHieu/LLM-gateway/setting/operation_setting"
@@ -17,14 +16,6 @@ import (
 
 type PaymentComplianceRequest struct {
 	Confirmed bool `json:"confirmed"`
-}
-
-func requirePaymentCompliance(c *gin.Context) bool {
-	if !operation_setting.IsPaymentComplianceConfirmed() {
-		common.ApiErrorI18n(c, i18n.MsgPaymentComplianceRequired)
-		return false
-	}
-	return true
 }
 
 func ConfirmPaymentCompliance(c *gin.Context) {

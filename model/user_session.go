@@ -174,20 +174,6 @@ func publishCreatedUserSession(session *UserSession, cacheDeadline time.Time) er
 	return nil
 }
 
-func CountActiveUserSessions(userID int, now int64) (int64, error) {
-	if userID <= 0 {
-		return 0, ErrUserSessionInvalid
-	}
-	if now <= 0 {
-		now = time.Now().Unix()
-	}
-	var count int64
-	err := DB.Model(&UserSession{}).
-		Where("user_id = ? AND status = ? AND expires_at > ?", userID, UserSessionStatusActive, now).
-		Count(&count).Error
-	return count, err
-}
-
 // CountUserSessionsCreatedSince counts every issued row, regardless of its
 // current status or expiry. userID zero selects the global count.
 func CountUserSessionsCreatedSince(userID int, createdAfter int64) (int64, error) {

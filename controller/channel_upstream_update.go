@@ -258,25 +258,6 @@ func getUpstreamModelUpdateMinCheckIntervalSeconds() int64 {
 	return interval
 }
 
-func parseOpenAIModelIDs(body []byte) ([]string, error) {
-	var result struct {
-		Data *[]OpenAIModel `json:"data"`
-	}
-	if err := common.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("invalid OpenAI Models response: %w", err)
-	}
-	if result.Data == nil {
-		return nil, fmt.Errorf("invalid OpenAI Models response: data is required")
-	}
-	ids := normalizeModelNames(lo.Map(*result.Data, func(item OpenAIModel, _ int) string {
-		return item.ID
-	}))
-	if len(ids) == 0 {
-		return nil, fmt.Errorf("OpenAI Models response contains no valid model IDs")
-	}
-	return ids, nil
-}
-
 func sanitizeFetchModelsError(err error, key string) error {
 	if err == nil {
 		return nil

@@ -10,10 +10,6 @@ type outlookAuth struct {
 	username, password string
 }
 
-func LoginAuth(username, password string) smtp.Auth {
-	return &outlookAuth{username, password}
-}
-
 func (a *outlookAuth) Start(_ *smtp.ServerInfo) (string, []byte, error) {
 	return "LOGIN", []byte{}, nil
 }

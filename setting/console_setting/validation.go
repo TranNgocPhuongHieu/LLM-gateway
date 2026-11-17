@@ -304,7 +304,3 @@ func validateUptimeKumaGroups(groupsStr string) error {
 	}
 	return nil
 }
-
-func GetUptimeKumaGroups() []map[string]interface{} {
-	return getJSONList(GetConsoleSetting().UptimeKumaGroups)
-}

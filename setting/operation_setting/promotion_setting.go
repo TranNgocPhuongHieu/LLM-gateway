@@ -185,17 +185,6 @@ func GetActiveTopupBonus(amount int64, now time.Time) float64 {
 	return best / 100
 }
 
-func GetActivePromotionAnnouncement(now time.Time) *PromotionAnnouncement {
-	settings := GetPromotionSetting()
-	var announcement PromotionAnnouncement
-	if json.Unmarshal([]byte(settings.Announcement), &announcement) != nil ||
-		!announcement.Enabled || strings.TrimSpace(announcement.Message) == "" ||
-		!promotionActive(announcement.StartAt, announcement.EndAt, now) {
-		return nil
-	}
-	return &announcement
-}
-
 // GetVisiblePromotionAnnouncement includes scheduled campaigns before start;
 // the frontend renders the upcoming label and hides only after expiry.
 func GetVisiblePromotionAnnouncement(now time.Time) *PromotionAnnouncement {

@@ -2,10 +2,8 @@ package service
 
 import (
 	"context"
-	"fmt"
 
 	relaycommon "github.com/TranNgocPhuongHieu/LLM-gateway/relay/common"
-	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/dto"
 	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/relayconvert"
 	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/types"
 	"github.com/gin-gonic/gin"
@@ -45,28 +43,4 @@ func ConvertRequestVia(c *gin.Context, info *relaycommon.RelayInfo, request any,
 		info.RecordConversionDiagnostics(c, result.Diagnostics)
 	}
 	return result, err
-}
-
-func ClaudeToOpenAIRequest(claudeRequest dto.ClaudeRequest, info *relaycommon.RelayInfo) (*dto.GeneralOpenAIRequest, error) {
-	result, err := ConvertRequest(nil, info, types.RelayFormatOpenAI, &claudeRequest)
-	if err != nil {
-		return nil, err
-	}
-	openAIRequest, ok := result.Value.(*dto.GeneralOpenAIRequest)
-	if !ok {
-		return nil, fmt.Errorf("expected OpenAI chat completions request, got %T", result.Value)
-	}
-	return openAIRequest, nil
-}
-
-func GeminiToOpenAIRequest(geminiRequest *dto.GeminiChatRequest, info *relaycommon.RelayInfo) (*dto.GeneralOpenAIRequest, error) {
-	result, err := ConvertRequest(nil, info, types.RelayFormatOpenAI, geminiRequest)
-	if err != nil {
-		return nil, err
-	}
-	openAIRequest, ok := result.Value.(*dto.GeneralOpenAIRequest)
-	if !ok {
-		return nil, fmt.Errorf("expected OpenAI chat completions request, got %T", result.Value)
-	}
-	return openAIRequest, nil
 }

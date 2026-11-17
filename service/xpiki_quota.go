@@ -708,10 +708,6 @@ func MaskXPikiKey(key string) string {
 	return key[:7] + "..." + key[len(key)-4:]
 }
 
-func FormatXPikiCostVND(costDecimal decimal.Decimal) string {
-	return FormatXPikiCostVNDForModel(costDecimal, "")
-}
-
 func FormatXPikiCostVNDForModel(costDecimal decimal.Decimal, modelSlug string) string {
 	if costDecimal.IsNegative() {
 		return ""

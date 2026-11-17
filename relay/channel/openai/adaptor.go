@@ -49,16 +49,6 @@ func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayIn
 }
 
 func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ClaudeRequest) (any, error) {
-	//if !strings.Contains(request.Model, "claude") {
-	//	return nil, fmt.Errorf("you are using openai channel type with path /v1/messages, only claude model supported convert, but got %s", request.Model)
-	//}
-	//if common.DebugEnabled {
-	//	bodyBytes := []byte(common.GetJsonString(request))
-	//	err := os.WriteFile(fmt.Sprintf("claude_request_%s.txt", c.GetString(common.RequestIdKey)), bodyBytes, 0644)
-	//	if err != nil {
-	//		println(fmt.Sprintf("failed to save request body to file: %v", err))
-	//	}
-	//}
 	result, err := service.ConvertRequest(c, info, types.RelayFormatOpenAI, request)
 	if err != nil {
 		return nil, err
@@ -67,15 +57,6 @@ func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayIn
 	if !ok {
 		return nil, fmt.Errorf("expected OpenAI chat completions request, got %T", result.Value)
 	}
-	//if common.DebugEnabled {
-	//	println(fmt.Sprintf("convert claude to openai request result: %s", common.GetJsonString(aiRequest)))
-	//	// Save request body to file for debugging
-	//	bodyBytes := []byte(common.GetJsonString(aiRequest))
-	//	err = os.WriteFile(fmt.Sprintf("claude_to_openai_request_%s.txt", c.GetString(common.RequestIdKey)), bodyBytes, 0644)
-	//	if err != nil {
-	//		println(fmt.Sprintf("failed to save request body to file: %v", err))
-	//	}
-	//}
 	if info.SupportStreamOptions && info.IsStream {
 		aiRequest.StreamOptions = &dto.StreamOptions{
 			IncludeUsage: true,

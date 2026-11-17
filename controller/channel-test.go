@@ -394,15 +394,6 @@ func testChannel(ctx context.Context, channel *model.Channel, testUserID int, te
 		}
 	}
 
-	//jsonData, err = relaycommon.RemoveDisabledFields(jsonData, info.ChannelOtherSettings)
-	//if err != nil {
-	//	return testResult{
-	//		context:     c,
-	//		localErr:    err,
-	//		newAPIError: types.NewError(err, types.ErrorCodeConvertRequestFailed),
-	//	}
-	//}
-
 	if len(info.ParamOverride) > 0 {
 		jsonData, err = relaycommon.ApplyParamOverrideWithRelayInfo(jsonData, info)
 		if err != nil {
@@ -515,23 +506,6 @@ func testChannel(ctx context.Context, channel *model.Channel, testUserID int, te
 
 // channelTestSummary records the outcome of one channel test cycle so the
 // system task can persist a per-run result for history.
-
-// runChannelTestWorkers executes independent channel tests with bounded
-// concurrency. Results and progress are reduced by the caller goroutine, so
-// summary counts and the progress reporter remain serialized.
-
-// performChannelTests runs channel health checks with the configured bounded
-// concurrency and honors cancellation when a system-task runner loses its
-// lease.
-
-// runChannelTestTask runs one synchronous channel test cycle for the system task
-// runner (both the scheduled job and the manual "test all channels" trigger go
-// through here). It honors ctx cancellation so a runner that loses its lease
-// stops promptly. mode selects the channel set: an empty mode falls back to the
-// configured monitor ChannelTestMode (scheduled behavior), while a manual
-// trigger passes ChannelTestModeScheduledAll to test every channel. When notify
-// is set the root user is notified on completion. Cross-instance execution is
-// guarded by the system task per-type lock, so no process-local guard is needed.
 
 // TestAllChannels enqueues a channel_test system task instead of running the
 // test loop inline. If any channel_test task is already active, the manual run is

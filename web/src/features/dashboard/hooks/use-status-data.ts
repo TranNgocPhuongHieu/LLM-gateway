@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useStatus } from '@/hooks/use-status'
 
-import type { ApiInfoItem, FAQItem } from '../types'
+import type { ApiInfoItem } from '../types'
 
 /**
  * Get specific list from status data
@@ -40,13 +40,6 @@ export function useStatusData<T = unknown>(
  */
 export function useApiInfo() {
   return useStatusData<ApiInfoItem>('api_info_enabled', 'api_info')
-}
-
-/**
- * Get FAQ list
- */
-export function useFAQ() {
-  return useStatusData<FAQItem>('faq_enabled', 'faq')
 }
 
 /**

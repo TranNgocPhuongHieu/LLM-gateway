@@ -6932,6 +6932,8 @@
     "Copy config for": "Copy cấu hình cho",
     "More tools in Docs": "Công cụ khác trong Tài liệu",
     "Sign up with Google and get {{credit}} free credit to try the API.": "Đăng ký bằng Google và nhận {{credit}} credit để dùng thử API.",
-    "Start free with Google": "Bắt đầu miễn phí với Google"
+    "Start free with Google": "Bắt đầu miễn phí với Google",
+    "New user credit": "Credit cho người dùng mới",
+    "Free credit for each new account, in credits ({{formattedQuota}})": "Credit miễn phí cho mỗi tài khoản mới, nhập theo credit ({{formattedQuota}})"
   }
 }

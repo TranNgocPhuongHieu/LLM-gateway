@@ -6815,6 +6815,8 @@
     "Copy config for": "Copy config for",
     "More tools in Docs": "More tools in Docs",
     "Sign up with Google and get {{credit}} free credit to try the API.": "Sign up with Google and get {{credit}} free credit to try the API.",
-    "Start free with Google": "Start free with Google"
+    "Start free with Google": "Start free with Google",
+    "New user credit": "New user credit",
+    "Free credit for each new account, in credits ({{formattedQuota}})": "Free credit for each new account, in credits ({{formattedQuota}})"
   }
 }

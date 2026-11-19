@@ -33,7 +33,11 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import { formatQuota } from '@/lib/format'
+import {
+  formatQuota,
+  parseQuotaFromDollars,
+  quotaUnitsToEditableAmount,
+} from '@/lib/format'
 
 import { FormDirtyIndicator } from '../components/form-dirty-indicator'
 import { FormNavigationGuard } from '../components/form-navigation-guard'
@@ -70,6 +74,12 @@ function formatQuotaInputValue(value: QuotaInputValue): string {
   return formatQuota(value === '' ? 0 : value)
 }
 
+// QuotaForNewUser is stored in quota units but edited in credits, the unit
+// customers see on their balance.
+function newUserCreditToQuota(value: QuotaInputValue): number {
+  return value === '' ? 0 : parseQuotaFromDollars(value)
+}
+
 type QuotaSettingsSectionProps = {
   defaultValues: QuotaFormValues
   // Kept for caller compatibility; invite rewards are retired.
@@ -95,12 +105,20 @@ export function QuotaSettingsSection({
         unknown,
         QuotaFormValues
       >,
-      defaultValues,
+      defaultValues: {
+        ...defaultValues,
+        QuotaForNewUser: quotaUnitsToEditableAmount(
+          defaultValues.QuotaForNewUser
+        ),
+      },
       onSubmit: async (_data, changedFields) => {
         for (const [key, value] of Object.entries(changedFields)) {
           await updateOption.mutateAsync({
             key,
-            value: value as string | number | boolean,
+            value:
+              key === 'QuotaForNewUser'
+                ? newUserCreditToQuota(value as QuotaInputValue)
+                : (value as string | number | boolean),
           })
         }
       },
@@ -123,10 +141,12 @@ export function QuotaSettingsSection({
               name='QuotaForNewUser'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('New User Quota')}</FormLabel>
+                  <FormLabel>{t('New user credit')}</FormLabel>
                   <FormControl>
                     <Input
                       type='number'
+                      min={0}
+                      step='any'
                       value={field.value ?? ''}
                       onChange={handleNumberChange(field.onChange)}
                       name={field.name}
@@ -136,9 +156,11 @@ export function QuotaSettingsSection({
                   </FormControl>
                   <FormDescription>
                     {t(
-                      'Initial quota given to new users ({{formattedQuota}})',
+                      'Free credit for each new account, in credits ({{formattedQuota}})',
                       {
-                        formattedQuota: formatQuotaInputValue(field.value),
+                        formattedQuota: formatQuotaInputValue(
+                          newUserCreditToQuota(field.value)
+                        ),
                       }
                     )}
                   </FormDescription>

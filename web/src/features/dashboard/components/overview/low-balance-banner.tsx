@@ -21,8 +21,10 @@ import {
 
 const CREDIT_FORMAT = { abbreviate: false, digitsLarge: 2, digitsSmall: 2 } as const
 
-// Shown when the balance is under the customer's warning threshold or the
-// projected runway is critical. Renders nothing otherwise.
+// Shown only to customers who are actively spending: the balance is under
+// their warning threshold or the projected runway is critical. A balance
+// with no spend in the last 7 days (e.g. a new account's signup credit) is
+// not "running low", so nothing is rendered.
 export function LowBalanceBanner() {
   const { t } = useTranslation()
   const user = useAuthStore((state) => state.auth.user)
@@ -33,6 +35,7 @@ export function LowBalanceBanner() {
 
   const thresholdQuota = threshold.data ?? DEFAULT_QUOTA_WARNING_THRESHOLD
   const avgDaily = averageDailyQuota(spend.last7DaysQuota ?? 0)
+  if (avgDaily <= 0) return null
   const health = getHealthLevel(balanceQuota, avgDaily)
   const belowThreshold = isBelowWarningThreshold(balanceQuota, thresholdQuota)
   if (!belowThreshold && health !== 'critical') return null

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -521,8 +522,101 @@ func GetUserTopUps(c *gin.Context) {
 	common.ApiSuccess(c, pageInfo)
 }
 
+// adminTopUpKeywordMaxLen bounds the admin search keyword (order ID or TxID).
+const adminTopUpKeywordMaxLen = 100
+
+// adminTopUpListQuery is the validated query of GET /api/user/topup.
+type adminTopUpListQuery struct {
+	filter     model.AdminTopUpFilter
+	todayStart int64
+	todayEnd   int64
+}
+
+// parseOptionalUnixParam returns 0 when the parameter is absent and rejects
+// anything that is not a positive unix timestamp.
+func parseOptionalUnixParam(c *gin.Context, name string) (int64, error) {
+	raw := c.Query(name)
+	if raw == "" {
+		return 0, nil
+	}
+	value, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || value <= 0 {
+		return 0, fmt.Errorf("invalid %s", name)
+	}
+	return value, nil
+}
+
+// parseAdminTopUpListQuery validates the optional filters of the admin top-up
+// list. Without today_start/today_end the bounds of the server-local day of now
+// are used.
+func parseAdminTopUpListQuery(c *gin.Context, now time.Time) (adminTopUpListQuery, error) {
+	var query adminTopUpListQuery
+	keyword := strings.TrimSpace(c.Query("keyword"))
+	if len(keyword) > adminTopUpKeywordMaxLen {
+		return query, fmt.Errorf("keyword must be at most %d characters", adminTopUpKeywordMaxLen)
+	}
+	query.filter.Keyword = keyword
+
+	switch status := c.Query("status"); status {
+	case "", "all":
+	case model.AdminTopUpStatusSuccess, model.AdminTopUpStatusExpired, model.AdminTopUpStatusNeedsReview:
+		query.filter.Status = status
+	default:
+		return query, fmt.Errorf("invalid status: %q", status)
+	}
+	switch method := c.Query("payment_method"); method {
+	case "", "all":
+	case model.AdminTopUpMethodSepay, model.AdminTopUpMethodBinance:
+		query.filter.PaymentMethod = method
+	default:
+		return query, fmt.Errorf("invalid payment_method: %q", method)
+	}
+
+	start, err := parseOptionalUnixParam(c, "start_timestamp")
+	if err != nil {
+		return query, err
+	}
+	end, err := parseOptionalUnixParam(c, "end_timestamp")
+	if err != nil {
+		return query, err
+	}
+	if start > 0 && end > 0 && end <= start {
+		return query, errors.New("end_timestamp must be after start_timestamp")
+	}
+	query.filter.StartTime = start
+	query.filter.EndTime = end
+
+	todayStart, err := parseOptionalUnixParam(c, "today_start")
+	if err != nil {
+		return query, err
+	}
+	todayEnd, err := parseOptionalUnixParam(c, "today_end")
+	if err != nil {
+		return query, err
+	}
+	if (todayStart > 0) != (todayEnd > 0) {
+		return query, errors.New("today_start and today_end must be provided together")
+	}
+	if todayStart == 0 {
+		localDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		todayStart = localDay.Unix()
+		todayEnd = localDay.AddDate(0, 0, 1).Unix()
+	}
+	if todayEnd <= todayStart {
+		return query, errors.New("today_end must be after today_start")
+	}
+	query.todayStart = todayStart
+	query.todayEnd = todayEnd
+	return query, nil
+}
+
 // GetAllTopUps 管理员获取全平台充值记录
 func GetAllTopUps(c *gin.Context) {
+	query, err := parseAdminTopUpListQuery(c, time.Now())
+	if err != nil {
+		common.ApiErrorMsg(c, err.Error())
+		return
+	}
 	if err := model.ExpireStaleSepayPayments(); err != nil {
 		common.ApiError(c, err)
 		return
@@ -532,18 +626,8 @@ func GetAllTopUps(c *gin.Context) {
 		return
 	}
 	pageInfo := common.GetPageQuery(c)
-	keyword := c.Query("keyword")
 
-	var (
-		topups []*model.TopUp
-		total  int64
-		err    error
-	)
-	if keyword != "" {
-		topups, total, err = model.SearchAllTopUps(keyword, pageInfo)
-	} else {
-		topups, total, err = model.GetAllTopUps(pageInfo)
-	}
+	topups, total, err := model.ListAdminTopUps(query.filter, pageInfo)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -563,7 +647,7 @@ func GetAllTopUps(c *gin.Context) {
 	}
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(topups)
-	summary, err := model.GetTopUpSummary()
+	summary, err := model.GetTopUpSummary(query.todayStart, query.todayEnd)
 	if err != nil {
 		common.ApiError(c, err)
 		return

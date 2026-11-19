@@ -25,12 +25,31 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { quotaUnitsToDollars, parseQuotaFromDollars } from '@/lib/format'
 import { handleServerError } from '@/lib/handle-server-error'
 import { ROLE } from '@/lib/roles'
 
 import { updateUserSettings } from '../../api'
 import { normalizeUserSettings } from '../../lib/user-settings'
 import type { UserProfile } from '../../types'
+
+// Site display rate: 1 credit = 1,000 VND (same as wallet-stats-card).
+const VND_PER_CREDIT = 1000
+
+// The stored threshold stays in quota units. These helpers only translate the
+// value for display and input, using the same helpers as the rest of the app.
+export function formatThresholdCredits(quota: number): string {
+  const credits = quotaUnitsToDollars(quota)
+  return String(Number(credits.toFixed(8)))
+}
+
+export function parseThresholdCredits(credits: number): number {
+  return parseQuotaFromDollars(credits)
+}
+
+export function thresholdCreditsToVnd(quota: number): number {
+  return Math.round(quotaUnitsToDollars(quota) * VND_PER_CREDIT)
+}
 
 // ============================================================================
 // Settings Tab Component
@@ -46,6 +65,11 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
   const isAdmin = (profile?.role ?? 0) >= ROLE.ADMIN
   const [loading, setLoading] = useState(false)
   const [settings, setSettings] = useState(() => normalizeUserSettings())
+  // Text the user is typing in credits; kept separately so partial input such
+  // as "1." is not rewritten while typing.
+  const [thresholdCreditText, setThresholdCreditText] = useState(() =>
+    formatThresholdCredits(normalizeUserSettings().quota_warning_threshold)
+  )
 
   // Update form field helper
   const updateField = useCallback(
@@ -60,9 +84,20 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
 
   useEffect(() => {
     if (profile?.setting) {
-      setSettings(normalizeUserSettings(profile.setting))
+      const next = normalizeUserSettings(profile.setting)
+      setSettings(next)
+      setThresholdCreditText(formatThresholdCredits(next.quota_warning_threshold))
     }
   }, [profile])
+
+  const handleThresholdChange = (text: string) => {
+    setThresholdCreditText(text)
+    const credits = Number(text)
+    updateField(
+      'quota_warning_threshold',
+      Number.isFinite(credits) ? parseThresholdCredits(credits) : 0
+    )
+  }
 
   const handleSave = async () => {
     try {
@@ -88,18 +123,29 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
       {/* Warning Threshold */}
       <div className='space-y-1.5'>
         <Label htmlFor='threshold'>{t('Quota Warning Threshold')}</Label>
-        <Input
-          id='threshold'
-          type='number'
-          className='h-9'
-          value={settings.quota_warning_threshold}
-          onChange={(e) =>
-            updateField('quota_warning_threshold', Number(e.target.value))
-          }
-          placeholder={t('Enter threshold')}
-        />
-        <p className='text-muted-foreground text-xs'>
+        <div className='flex items-center gap-2'>
+          <Input
+            id='threshold'
+            type='number'
+            step='any'
+            className='h-9'
+            value={thresholdCreditText}
+            onChange={(e) => handleThresholdChange(e.target.value)}
+            placeholder={t('Enter threshold')}
+            aria-describedby='threshold-help'
+          />
+          <span className='text-muted-foreground shrink-0 text-xs'>
+            {t('credit')}
+          </span>
+        </div>
+        <p id='threshold-help' className='text-muted-foreground text-xs'>
           {t('Get notified when balance falls below this value')}
+          {' · '}
+          {t('≈ {{vnd}} VND', {
+            vnd: new Intl.NumberFormat().format(
+              thresholdCreditsToVnd(settings.quota_warning_threshold)
+            ),
+          })}
         </p>
       </div>
 

@@ -96,7 +96,8 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		if newAPIError != nil {
 			logger.LogError(c, fmt.Sprintf("relay error: %s", common.LocalLogPreview(newAPIError.Error())))
 			newAPIError.SetMessage(common.MessageWithRequestId(newAPIError.Error(), requestId))
-			if !terminalErrorRecorded && constant.ErrorLogEnabled && types.IsRecordErrorLog(newAPIError) {
+			if !terminalErrorRecorded && constant.ErrorLogEnabled &&
+				(types.IsRecordErrorLog(newAPIError) || shouldRecordBalanceRejection(c.GetInt("id"), newAPIError)) {
 				isStream := common.GetContextKeyBool(c, constant.ContextKeyIsStream)
 				if relayInfo != nil {
 					isStream = relayInfo.IsStream

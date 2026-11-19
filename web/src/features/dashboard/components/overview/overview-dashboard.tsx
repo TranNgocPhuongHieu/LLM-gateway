@@ -66,6 +66,18 @@ import { ModelCharts } from '../models/model-charts'
 import { RecentUsagePanel, useDashboardBalance } from './recent-usage-panel'
 import { SummaryCards } from './summary-cards'
 import { AdminUsageTrackingCard } from './admin-usage-tracking-card'
+import { DailyCostChart } from './daily-cost-chart'
+import { LowBalanceBanner } from './low-balance-banner'
+import { OverviewRangePicker } from './overview-range-picker'
+import {
+  addLocalDays,
+  resolveRangeState,
+  toLocalDateKey,
+  type RangeState,
+} from './overview-time-range'
+import { RecentErrorsCard } from './recent-errors-card'
+import { SpendBreakdownCard } from './spend-breakdown-card'
+import { useCurrentMinute } from './use-overview-usage'
 
 const SETUP_GUIDE_VISIBILITY_STORAGE_KEY =
   'dashboard_overview_setup_guide_expanded'
@@ -447,6 +459,20 @@ export function OverviewDashboard() {
   const user = useAuthStore((state) => state.auth.user)
   useDashboardBalance()
   const { items: apiInfoItems } = useApiInfo()
+  const now = useCurrentMinute()
+  const [rangeState, setRangeState] = useState<RangeState>(() => {
+    const today = new Date()
+    return {
+      preset: '7d',
+      customStart: toLocalDateKey(addLocalDays(today, -6)),
+      customEnd: toLocalDateKey(today),
+    }
+  })
+  const todayKey = toLocalDateKey(now)
+  const resolvedRange = useMemo(
+    () => resolveRangeState(rangeState, now),
+    [rangeState, now]
+  )
   const [manualSetupGuideExpanded, setManualSetupGuideExpanded] = useState<
     boolean | null
   >(() => getSavedSetupGuideExpanded())
@@ -480,6 +506,7 @@ export function OverviewDashboard() {
       return result.data ?? []
     },
     staleTime: 60 * 1000,
+    enabled: isAdmin,
   })
 
   const apiKeysQuery = useQuery({
@@ -645,6 +672,15 @@ export function OverviewDashboard() {
       </SectionPageLayout.Actions>
       <SectionPageLayout.Content>
         <div className='flex flex-col gap-4'>
+          <LowBalanceBanner />
+          <OverviewRangePicker
+            value={rangeState}
+            onChange={setRangeState}
+            todayKey={todayKey}
+            error={resolvedRange.error}
+          />
+          <SummaryCards />
+
           <div id={setupGuideId} hidden={!setupGuideExpanded}>
             {setupGuideExpanded && (
               <CardStaggerContainer className='grid items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]'>
@@ -729,23 +765,35 @@ export function OverviewDashboard() {
               </CardStaggerContainer>
             )}
           </div>
-          <SummaryCards />
+
+          <DailyCostChart range={resolvedRange.range} />
+
+          <div className='grid gap-4 lg:grid-cols-2'>
+            <SpendBreakdownCard range={resolvedRange.range} />
+            <RecentErrorsCard range={resolvedRange.range} />
+          </div>
 
           <AdminUsageTrackingCard />
 
           <RecentUsagePanel />
 
-          <ConsumptionDistributionChart
-            data={quotaQuery.data ?? []}
-            loading={quotaQuery.isLoading}
-            timeGranularity='hour'
-          />
+          {/* Customers get the daily cost chart above; these system-wide
+              charts stay for super admins only. */}
+          {isAdmin && (
+            <>
+              <ConsumptionDistributionChart
+                data={quotaQuery.data ?? []}
+                loading={quotaQuery.isLoading}
+                timeGranularity='hour'
+              />
 
-          <ModelCharts
-            data={quotaQuery.data ?? []}
-            loading={quotaQuery.isLoading}
-            timeGranularity='hour'
-          />
+              <ModelCharts
+                data={quotaQuery.data ?? []}
+                loading={quotaQuery.isLoading}
+                timeGranularity='hour'
+              />
+            </>
+          )}
         </div>
       </SectionPageLayout.Content>
     </SectionPageLayout>

@@ -20,7 +20,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/rankings/')({
   beforeLoad: () => {
-    throw redirect({ to: '/quota-check' })
+    throw redirect({ to: '/' })
   },
   component: () => null,
 })

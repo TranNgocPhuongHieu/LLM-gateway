@@ -66,12 +66,12 @@ async function lastLogCall() {
 describe('Request Logs filters', () => {
   it('changes page size and channel, keeping earlier filters during pending requests', async () => {
     mountLogs()
-    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Chọn model' })).toBeDefined())
-    await userEvent.click(screen.getByRole('combobox', { name: 'Số dòng/trang' }))
-    await userEvent.click(await screen.findByRole('option', { name: '50 dòng/trang' }))
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Select model' })).toBeDefined())
+    await userEvent.click(screen.getByRole('combobox', { name: 'Rows per page' }))
+    await userEvent.click(await screen.findByRole('option', { name: '50 rows/page' }))
     await waitFor(() => expect(vi.mocked(fetchXPikiLogs).mock.lastCall?.[0].page_size).toBe(50))
 
-    await userEvent.click(screen.getByRole('combobox', { name: 'Lọc khóa API' }))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Filter API keys' }))
     expect(screen.queryByRole('option', { name: 'Kênh: 9router' })).toBeNull()
     await userEvent.click(await screen.findByRole('option', { name: 'Khóa #7: test' }))
     await waitFor(() => expect(vi.mocked(fetchXPikiLogs).mock.lastCall?.[0].key_filter).toBe('token_id:7'))
@@ -80,12 +80,12 @@ describe('Request Logs filters', () => {
     vi.mocked(fetchXPikiLogs).mockImplementationOnce(() => new Promise(resolve => { resolvePending = resolve }))
     expect(screen.queryByRole('button', { name: 'Yesterday' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Today' })).toBeDefined()
-    await userEvent.click(screen.getByRole('combobox', { name: 'Lọc kênh' }))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Filter channels' }))
     await userEvent.click(await screen.findByRole('option', { name: 'Kênh: 9router' }))
     await waitFor(() => expect(vi.mocked(fetchXPikiLogs).mock.lastCall?.[0].channel_filter).toBe('channel:10'))
     expect(vi.mocked(fetchXPikiLogs).mock.lastCall?.[0].key_filter).toBe('token_id:7')
     // Model values stay selectable while the previous query is pending.
-    await userEvent.click(screen.getByRole('combobox', { name: 'Chọn model' }))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Select model' }))
     await userEvent.click(await screen.findByRole('option', { name: 'gpt-6.1-sol' }))
     await waitFor(() => expect(vi.mocked(fetchXPikiLogs).mock.lastCall?.[0].model).toBe('gpt-6.1-sol'))
     expect(vi.mocked(fetchXPikiLogs).mock.calls.some(([, signal]) => signal?.aborted)).toBe(true)
@@ -107,13 +107,13 @@ describe('Request Logs filters', () => {
   it('sends every selected user as an IN list', async () => {
     mountLogs()
     const userSelect = await waitFor(() =>
-      screen.getByRole('combobox', { name: 'Chọn người dùng' })
+      screen.getByRole('combobox', { name: 'Select user' })
     )
     await userEvent.click(userSelect)
     await userEvent.click(await screen.findByRole('option', { name: 'alice' }))
     await waitFor(() => expect(vi.mocked(fetchXPikiLogs).mock.lastCall?.[0].user).toBe('alice'))
 
-    await userEvent.click(screen.getByRole('combobox', { name: 'Chọn người dùng' }))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Select user' }))
     await userEvent.click(await screen.findByRole('option', { name: 'bob' }))
     await waitFor(() => expect(vi.mocked(fetchXPikiLogs).mock.lastCall?.[0].user).toBe('alice,bob'))
   })

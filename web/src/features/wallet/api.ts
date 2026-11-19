@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { api } from '@/lib/api'
+import type { ApiRequestConfig } from '@/lib/http-client'
 
 import type {
   PaymentRequest,
@@ -135,6 +136,64 @@ export async function getAllBillingHistory(
     params.append('keyword', keyword)
   }
   const res = await api.get(`/api/user/topup?${params.toString()}`)
+  return res.data
+}
+
+/** Admin summary returned alongside each admin top-up list page (all-time unless noted). */
+export interface AdminTopupSummary {
+  total: number
+  pending: number
+  success: number
+  cancelled: number
+  processing: number
+  needs_review: number
+  /** Sum of successful top-ups in VND (SePay amount, otherwise money). */
+  collected_vnd: number
+  /** Same sum restricted to today_start..today_end. */
+  today_vnd: number
+}
+
+export interface AdminTopupListParams {
+  page: number
+  pageSize: number
+  keyword?: string
+  /** 'success' | 'expired' | 'needs_review'; omit for all. */
+  status?: string
+  /** 'sepay' | 'binance'; omit for all. */
+  paymentMethod?: string
+  startTimestamp?: number
+  endTimestamp?: number
+  todayStart?: number
+  todayEnd?: number
+}
+
+export interface AdminTopupListResponse extends BillingHistoryResponse {
+  summary?: AdminTopupSummary
+}
+
+/**
+ * Admin top-up list with server-side keyword, status, payment method and time
+ * filters. Pass `todayStart`/`todayEnd` (local day, unix seconds, end exclusive)
+ * to get local-day totals in the summary.
+ */
+export async function getAdminTopupList(
+  params: AdminTopupListParams,
+  config?: ApiRequestConfig
+): Promise<ApiResponse<AdminTopupListResponse>> {
+  const query = new URLSearchParams({
+    p: params.page.toString(),
+    page_size: params.pageSize.toString(),
+  })
+  if (params.keyword) query.append('keyword', params.keyword)
+  if (params.status) query.append('status', params.status)
+  if (params.paymentMethod) query.append('payment_method', params.paymentMethod)
+  if (params.startTimestamp) query.append('start_timestamp', params.startTimestamp.toString())
+  if (params.endTimestamp) query.append('end_timestamp', params.endTimestamp.toString())
+  if (params.todayStart && params.todayEnd) {
+    query.append('today_start', params.todayStart.toString())
+    query.append('today_end', params.todayEnd.toString())
+  }
+  const res = await api.get(`/api/user/topup?${query.toString()}`, config)
   return res.data
 }
 

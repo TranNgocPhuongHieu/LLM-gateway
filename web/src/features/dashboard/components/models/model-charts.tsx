@@ -96,7 +96,7 @@ export function ModelCharts(props: ModelChartsProps) {
             {t('Model Call Analytics')}
           </div>
           <span className='text-muted-foreground text-xs tabular-nums'>
-            {t('Chart total prefix', 'Tổng:')} {chartData.totalCountDisplay}{' '}
+            {t('Total:')} {chartData.totalCountDisplay}{' '}
             request
           </span>
         </div>

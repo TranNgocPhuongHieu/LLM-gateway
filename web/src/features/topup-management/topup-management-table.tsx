@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight, Copy, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,8 +13,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getAllBillingHistory, isApiSuccess } from "@/features/wallet/api";
+import {
+  getAdminTopupList,
+  isApiSuccess,
+  type AdminTopupListResponse,
+} from "@/features/wallet/api";
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
+import { useDebounce } from "@/hooks/use-debounce";
 import type { TopupRecord } from "@/features/wallet/types";
 import { api } from "@/lib/api";
 
@@ -25,7 +30,14 @@ export function formatUsdt(value: string, locale: string) {
 }
 export const needsReview = (r: TopupRecord) =>
   r.status !== "success" &&
-  ["review", "partial", "matched", "expired"].includes(r.binance?.status ?? "");
+  (["review", "partial", "matched", "expired"].includes(r.binance?.status ?? "") ||
+    r.sepay?.verification_status === "review");
+
+export const canConfirmBank = (r: TopupRecord) =>
+  r.payment_provider === "sepay" && r.sepay?.flow === "bank" &&
+  ((r.status === "pending" && ["pending", "review"].includes(r.sepay.verification_status)) ||
+    (r.status === "expired" && r.sepay.verification_status === "voided" &&
+      r.sepay.verification_reason === "QR payment expired after 15 minutes"));
 
 export function statusKey(r: TopupRecord) {
   if (r.status === "success") return "Successful";
@@ -48,26 +60,62 @@ export function statusKey(r: TopupRecord) {
   return "Waiting for payment";
 }
 
-export async function loadTopups(signal?: AbortSignal): Promise<TopupRecord[]> {
-  const records = new Map<number, TopupRecord>();
-  // Existing API has no server-side method/TxHash filters. Bound aggregate
-  // loading and fail explicitly instead of presenting partial global totals.
-  for (let page = 1; page <= 100; page++) {
-    signal?.throwIfAborted();
-    const response = await getAllBillingHistory(page, 100);
-    if (!isApiSuccess(response) || !response.data)
-      throw new Error("Failed to load billing history");
-    const { items, total } = response.data;
-    if (total > 10000)
-      throw new Error("History exceeds the display limit. Server-side filtering is required.");
-    items.forEach((r) => records.set(r.id, r));
-    if (page * 100 >= total) {
-      if (records.size < total) throw new Error("History changed while loading. Please refresh.");
-      return [...records.values()];
-    }
-    if (!items.length) throw new Error("Failed to load billing history");
-  }
-  throw new Error("History exceeds the display limit. Server-side filtering is required.");
+export type TopupListQuery = {
+  page: number;
+  pageSize: number;
+  keyword: string;
+  status: string;
+  paymentMethod: string;
+  time: string;
+};
+
+/** Local-day bounds in unix seconds; the end is exclusive. */
+export function localDayBounds(now = new Date()) {
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return {
+    start: Math.floor(start.getTime() / 1000),
+    end: Math.floor(end.getTime() / 1000),
+  };
+}
+
+// UI tab value -> server status filter ("all" is absent and means no filter).
+const TOPUP_STATUS_PARAM: Record<string, string | undefined> = {
+  success: "success",
+  expired: "expired",
+  review: "needs_review",
+};
+const TOPUP_TIME_DAYS: Record<string, number> = { "7": 7, "30": 30 };
+
+/** Loads one server-side page of the admin list together with its summary. */
+export async function loadTopupPage(
+  query: TopupListQuery,
+  signal?: AbortSignal,
+): Promise<AdminTopupListResponse> {
+  signal?.throwIfAborted();
+  const today = localDayBounds();
+  let startTimestamp: number | undefined;
+  if (query.time === "1") startTimestamp = today.start;
+  else if (query.time in TOPUP_TIME_DAYS)
+    startTimestamp = Math.floor(Date.now() / 1000) - TOPUP_TIME_DAYS[query.time] * 86400;
+  const response = await getAdminTopupList(
+    {
+      page: query.page,
+      pageSize: query.pageSize,
+      keyword: query.keyword,
+      status: TOPUP_STATUS_PARAM[query.status],
+      paymentMethod: query.paymentMethod === "all" ? undefined : query.paymentMethod,
+      startTimestamp,
+      todayStart: today.start,
+      todayEnd: today.end,
+    },
+    { signal },
+  );
+  if (!isApiSuccess(response) || !response.data)
+    throw new Error("Failed to load billing history");
+  return response.data;
 }
 
 export function TopupManagementTable() {
@@ -85,13 +133,6 @@ export function TopupManagementTable() {
     second: "2-digit",
     hour12: false,
   });
-  const query = useQuery({
-    queryKey: ["admin-topup-history-view"],
-    queryFn: ({ signal }) => loadTopups(signal),
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-  const history = { records: query.data ?? [], refresh: query.refetch };
   const { copyToClipboard } = useCopyToClipboard();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -104,10 +145,21 @@ export function TopupManagementTable() {
     fee_percent: string;
   } | null>(null);
   const [q, setQ] = useState("");
+  const keyword = useDebounce(q.trim(), 300);
   const [method, setMethod] = useState("all");
   const [status, setStatus] = useState("all");
   const [time, setTime] = useState("all");
   const [busy, setBusy] = useState("");
+  const listQuery = useQuery({
+    queryKey: ["admin-topup-list", keyword, page, pageSize, status, method, time],
+    queryFn: ({ signal }) =>
+      loadTopupPage({ page, pageSize, keyword, status, paymentMethod: method, time }, signal),
+    placeholderData: keepPreviousData,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const summary = listQuery.data?.summary;
+  const history = { refresh: listQuery.refetch };
   const state = (r: TopupRecord) => [
     t(statusKey(r)),
     r.status === "success"
@@ -132,43 +184,39 @@ export function TopupManagementTable() {
       active = false;
     };
   }, [t]);
-  useEffect(() => {
-    setPage(1);
-  }, [q, method, status, time, pageSize]);
-  const rows = useMemo(() => {
-    const now = Date.now() / 1000;
-    const term = q.trim().toLowerCase();
-    return history.records
-      .filter(
-        (r) =>
-          (!term ||
-            r.trade_no.toLowerCase().includes(term) ||
-            (r.binance?.deposit?.tx_id ?? "").toLowerCase().includes(term)) &&
-          (method === "all" ||
-            (method === "binance" ? !!r.binance : r.payment_provider === "sepay")) &&
-          (status === "all" || (status === "review" ? needsReview(r) : status === r.status)) &&
-          (time === "all" ||
-            r.create_time >=
-              (time === "1"
-                ? new Date(new Date().setHours(0, 0, 0, 0)).getTime() / 1000
-                : now - Number(time) * 86400)),
-      )
-      .sort((a, b) => b.create_time - a.create_time);
-  }, [history.records, q, method, status, time]);
-  const manual = history.records.filter(needsReview).length;
-  const pages = Math.max(1, Math.ceil(rows.length / pageSize));
-  const current = Math.min(page, pages);
-  const visible = rows.slice((current - 1) * pageSize, current * pageSize);
-  const successfulVND = history.records
-    .filter((r) => r.status === "success")
-    .reduce((sum, r) => sum + (r.sepay?.amount_vnd ?? r.money), 0);
-  const todayVND = history.records
-    .filter(
-      (r) =>
-        r.status === "success" &&
-        new Date(r.create_time * 1000).toDateString() === new Date().toDateString(),
-    )
-    .reduce((sum, r) => sum + (r.sepay?.amount_vnd ?? r.money), 0);
+  // Status, payment method and time are filtered by the server.
+  const rows = useMemo(
+    () => [...(listQuery.data?.items ?? [])].sort((a, b) => b.create_time - a.create_time),
+    [listQuery.data],
+  );
+  const processing = summary?.processing ?? 0;
+  const manual = summary?.needs_review ?? 0;
+  const successfulVND = summary?.collected_vnd ?? 0;
+  const todayVND = summary?.today_vnd ?? 0;
+  // Pages come from the server total; `page` is the requested server page.
+  const total = listQuery.data?.total ?? 0;
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  const current = page;
+  const loadError = listQuery.error;
+  async function confirmBank(r: TopupRecord) {
+    if (!window.confirm(t("Confirm receipt for {{user}}, order {{order}}: {{money}} VND → {{credits}} credits. Previously added credits will NOT be deducted. Continue?", {
+      user: r.username ?? r.user_id, order: r.trade_no,
+      money: money.format(r.sepay!.amount_vnd), credits: money.format(r.sepay!.credits),
+    }))) return;
+    setBusy(r.trade_no);
+    setError("");
+    try {
+      const response = await api.post(`/api/user/sepay/orders/${encodeURIComponent(r.trade_no)}/confirm`, {
+        received: true,
+      });
+      if (!isApiSuccess(response.data)) throw new Error("rejected");
+      await history.refresh();
+    } catch {
+      setError(t("Unable to update the order. Please refresh and try again."));
+    } finally {
+      setBusy("");
+    }
+  }
   async function action(trade: string, kind: "reconcile" | "review") {
     setBusy(trade);
     setError("");
@@ -221,7 +269,7 @@ export function TopupManagementTable() {
           [t("Today"), `${money.format(todayVND)} VND`],
           [
             t("Processing"),
-            money.format(history.records.filter((r) => r.status === "pending").length),
+            money.format(processing),
           ],
         ].map(([label, value]) => (
           <div
@@ -230,7 +278,7 @@ export function TopupManagementTable() {
           >
             <div className="text-[13px] text-muted-foreground">{label}</div>
             <div className="mt-1 text-[28px] font-bold tabular-nums">
-              {query.isPending || query.isError ? "—" : value}
+              {summary ? value : "—"}
             </div>
           </div>
         ))}
@@ -240,17 +288,26 @@ export function TopupManagementTable() {
             <Button
               variant="link"
               className="h-auto p-0 text-warning"
-              onClick={() => setStatus("review")}
+              onClick={() => {
+                setStatus("review");
+                setPage(1);
+              }}
             >
               {t("View now")} →
             </Button>
           </div>
           <div className="mt-1 text-[28px] font-bold text-warning tabular-nums">
-            {query.isPending || query.isError ? "—" : manual}
+            {summary ? manual : "—"}
           </div>
         </div>
       </div>
-      <Tabs value={status} onValueChange={(value) => setStatus(String(value))}>
+      <Tabs
+        value={status}
+        onValueChange={(value) => {
+          setStatus(String(value));
+          setPage(1);
+        }}
+      >
         <section className="overflow-hidden rounded-2xl border bg-card">
           <div className="flex flex-wrap items-center justify-between gap-4 border-b px-5 py-4">
             <TabsList
@@ -280,10 +337,21 @@ export function TopupManagementTable() {
                   aria-label={t("Search order ID or TxHash")}
                   placeholder={t("Search order ID or TxHash")}
                   value={q}
-                  onChange={(e) => setQ(e.target.value)}
+                  onChange={(e) => {
+                    setQ(e.target.value);
+                    setPage(1);
+                  }}
                 />
               </div>
-              <Select value={time} onValueChange={(v) => v && setTime(v)}>
+              <Select
+                value={time}
+                onValueChange={(v) => {
+                  if (v) {
+                    setTime(v);
+                    setPage(1);
+                  }
+                }}
+              >
                 <SelectTrigger className="h-10" aria-label={t("Time")}>
                   <SelectValue>
                     {t("Time")}:{" "}
@@ -312,7 +380,15 @@ export function TopupManagementTable() {
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={method} onValueChange={(v) => v && setMethod(v)}>
+              <Select
+                value={method}
+                onValueChange={(v) => {
+                  if (v) {
+                    setMethod(v);
+                    setPage(1);
+                  }
+                }}
+              >
                 <SelectTrigger className="h-10" aria-label={t("Payment method")}>
                   <SelectValue>
                     {t("Payment method")}:{" "}
@@ -332,15 +408,15 @@ export function TopupManagementTable() {
             </div>
           </div>
           <TabsContent value={status}>
-            {(query.isError || error) && (
+            {(listQuery.isError || error) && (
               <p role="alert" className="p-4 text-sm text-destructive">
-                {error || t(query.error?.message ?? "Failed to load billing history")}
+                {error || t(loadError?.message ?? "Failed to load billing history")}
               </p>
             )}
-            <div className="max-h-[640px] overflow-auto" aria-busy={query.isFetching}>
-              <table className="w-full min-w-[1240px] table-fixed text-sm">
+            <div className="max-h-[640px] overflow-auto" aria-busy={listQuery.isFetching}>
+              <table className="w-full min-w-[1040px] table-fixed text-sm">
                 <colgroup>
-                  {[11, 12, 15, 14, 14, 6, 14, 14].map((width, index) => (
+                  {[9, 11, 14, 13, 13, 7, 15, 18].map((width, index) => (
                     <col key={index} style={{ width: `${width}%` }} />
                   ))}
                 </colgroup>
@@ -359,7 +435,7 @@ export function TopupManagementTable() {
                       <th
                         key={h}
                         scope="col"
-                        className={`px-4 text-xs font-medium ${i === 4 || i === 5 ? "text-right" : ""}`}
+                        className={`px-3 text-xs font-medium ${i === 4 || i === 5 ? "text-right" : ""}`}
                       >
                         {t(h)}
                       </th>
@@ -367,7 +443,7 @@ export function TopupManagementTable() {
                   </tr>
                 </thead>
                 <tbody>
-                  {visible.map((r) => {
+                  {rows.map((r) => {
                     const review = needsReview(r);
                     const expired = ["Expired", "Cancelled"].includes(statusKey(r));
                     const b = r.binance;
@@ -378,17 +454,17 @@ export function TopupManagementTable() {
                         className={`h-14 border-b hover:bg-foreground/[0.04] ${review ? "bg-warning/[0.07]" : expired ? "text-muted-foreground" : ""}`}
                       >
                         <td
-                          className={`px-4 py-2 tabular-nums ${review ? "border-l-[3px] border-l-warning" : ""}`}
+                          className={`px-3 py-2 tabular-nums ${review ? "border-l-[3px] border-l-warning" : ""}`}
                         >
                           <div>{clock.format(new Date(r.create_time * 1000))}</div>
                           <div className="text-xs text-muted-foreground">
                             {date.format(new Date(r.create_time * 1000))}
                           </div>
                         </td>
-                        <td className="truncate px-4 font-medium" title={r.username}>
+                        <td className="truncate px-3 font-medium" title={r.username}>
                           {r.username || `#${r.user_id}`}
                         </td>
-                        <td className="px-4">
+                        <td className="px-3">
                           <div className="flex items-center gap-1 whitespace-nowrap font-mono text-[13px]">
                             <span title={r.trade_no}>{short(r.trade_no)}</span>
                             <Button
@@ -401,7 +477,7 @@ export function TopupManagementTable() {
                             </Button>
                           </div>
                         </td>
-                        <td className="px-4">
+                        <td className="px-3">
                           <div>
                             {b
                               ? `USDT · ${b.network}`
@@ -418,7 +494,7 @@ export function TopupManagementTable() {
                             </div>
                           )}
                         </td>
-                        <td className="px-4 text-right tabular-nums">
+                        <td className="px-3 text-right tabular-nums">
                           <div className="whitespace-nowrap">
                             {b
                               ? `${formatUsdt(b.amount_usdt, locale)} USDT`
@@ -430,10 +506,10 @@ export function TopupManagementTable() {
                             </div>
                           )}
                         </td>
-                        <td className="px-4 text-right tabular-nums">
+                        <td className="px-3 text-right tabular-nums">
                           {r.status === "success" ? money.format(r.amount) : "—"}
                         </td>
-                        <td className="px-4">
+                        <td className="px-3">
                           <Badge className={`h-auto min-h-6 border-0 px-2 py-1 ${tone}`}>
                             <span
                               aria-hidden="true"
@@ -442,8 +518,20 @@ export function TopupManagementTable() {
                             {label}
                           </Badge>
                         </td>
-                        <td className="px-4">
-                          {review && (
+                        <td className="px-3">
+                          {canConfirmBank(r) && (
+                            <Button
+                              size="sm"
+                              className="h-8 whitespace-nowrap px-2 text-xs"
+                              disabled={busy !== ""}
+                              onClick={() => void confirmBank(r)}
+                            >
+                              {t("Confirm bank receipt")}
+                            </Button>
+                          )}
+                          {/* Reconcile/Review call the Binance order endpoints; SePay
+                              review rows are resolved with Confirm bank receipt. */}
+                          {review && b && (
                             <div className="flex gap-1">
                               <Button
                                 size="sm"
@@ -468,12 +556,12 @@ export function TopupManagementTable() {
                       </tr>
                     );
                   })}
-                  {!visible.length && (
+                  {!rows.length && (
                     <tr>
                       <td colSpan={8} className="h-28 text-center text-muted-foreground">
-                        {query.isPending
+                        {listQuery.isPending
                           ? t("Loading...")
-                          : query.isError
+                          : listQuery.isError
                             ? t("Failed to load billing history")
                             : t("No transactions found")}
                       </td>
@@ -485,16 +573,19 @@ export function TopupManagementTable() {
             <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 text-sm">
               <span className="text-muted-foreground">
                 {t("Showing {{from}}–{{to}} / {{total}} transactions", {
-                  from: rows.length ? (current - 1) * pageSize + 1 : 0,
-                  to: Math.min(current * pageSize, rows.length),
-                  total: rows.length,
+                  from: total ? (current - 1) * pageSize + 1 : 0,
+                  to: Math.min(current * pageSize, total),
+                  total,
                 })}
               </span>
               <div className="flex items-center gap-2">
                 <Select
                   value={String(pageSize)}
                   onValueChange={(v) => {
-                    if (v) setPageSize(Number(v));
+                    if (v) {
+                      setPageSize(Number(v));
+                      setPage(1);
+                    }
                   }}
                 >
                   <SelectTrigger aria-label={t("Rows per page")}>

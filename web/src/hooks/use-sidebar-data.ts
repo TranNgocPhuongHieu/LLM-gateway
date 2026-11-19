@@ -36,6 +36,8 @@ import {
 import { useTranslation } from "react-i18next";
 
 import type { SidebarData } from "@/components/layout/types";
+import { useTopupReviewBadge } from "@/features/topup-management/use-topup-review-badge";
+import { useAuthStore } from "@/stores/auth-store";
 import { ROLE } from "@/lib/roles";
 
 /**
@@ -46,6 +48,8 @@ import { ROLE } from "@/lib/roles";
  */
 export function useSidebarData(): SidebarData {
   const { t } = useTranslation();
+  const userRole = useAuthStore((s) => s.auth.user?.role);
+  const topupReviewBadge = useTopupReviewBadge((userRole ?? ROLE.GUEST) >= ROLE.SUPER_ADMIN);
 
   return {
     navGroups: [
@@ -59,7 +63,7 @@ export function useSidebarData(): SidebarData {
             icon: Activity,
           },
           {
-            title: t("Dashboard"),
+            title: t("Usage history"),
             url: "/dashboard/models",
             activeUrls: ["/dashboard/logs", "/dashboard/users"],
             icon: LayoutDashboard,
@@ -124,6 +128,7 @@ export function useSidebarData(): SidebarData {
             title: t("Top-up Management"),
             url: "/topup-management",
             icon: Banknote,
+            badge: topupReviewBadge,
             requiredRole: ROLE.SUPER_ADMIN,
           },
           {

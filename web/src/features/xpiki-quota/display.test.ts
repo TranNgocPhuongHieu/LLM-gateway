@@ -17,7 +17,7 @@ describe('XPiki page presentation', () => {
   it('keeps one price card and separates historical auditing from balance refresh', () => {
     expect(source).not.toContain('props.report.model_profiles.map((profile) => (')
     expect(source).toContain('<ModelRatioTable profiles={props.report.model_profiles}')
-    expect(modelCard).toContain("aria-label={t('Key đối soát giá')}")
+    expect(modelCard).toContain("aria-label={t('Price reconciliation key')}")
     expect(modelCard).toContain('enabled: isExpanded')
     expect(modelCard).toContain('checkXPikiQuota(props.customKeys, true)')
   })
@@ -43,7 +43,7 @@ describe('XPiki page presentation', () => {
   })
   it('shows key identity, username, fallback, tokens, cache and multi-select filters', () => {
     expect(logsCard).toContain('refetch()')
-    expect(logsCard).toContain("t('Tải lại log')")
+    expect(logsCard).toContain("t('Reload logs')")
     expect(logsCard).toContain('isLoading: isPending')
     expect(logsCard).toContain('row.token_id')
     // Endpoint, duration and request ID columns were removed on purpose.
@@ -54,15 +54,15 @@ describe('XPiki page presentation', () => {
     // safely when a legacy row has no username.
     expect(logsCard).toContain("header: t('User')")
     expect(logsCard).toContain('row.username')
-    expect(logsCard).toContain("t('Không xác định')")
+    expect(logsCard).toContain("t('Unknown')")
     expect(logsCard).toContain("t('Fallback')")
     expect(logsCard).toContain("t('Token (input / output)'")
     expect(logsCard).toContain('row.input_tokens.toLocaleString()')
     expect(logsCard).toContain('text-amber-600 dark:text-amber-400')
     expect(logsCard).toContain('formatLogCost(row.token_cost?.total_vnd)')
     // Model and user filters accept several values and send them as a list.
-    expect(logsCard).toContain("placeholder={t('Chọn model')}")
-    expect(logsCard).toContain("placeholder={t('Chọn người dùng')}")
+    expect(logsCard).toContain("placeholder={t('Select model')}")
+    expect(logsCard).toContain("placeholder={t('Select user')}")
     expect(logsCard).toContain("userFilter.length ? userFilter.join(',') : undefined")
     expect(logsCard).toContain("modelFilter === 'all' ? undefined : modelFilter")
     expect(logsCard).toContain('userOptions.map((user) => ({ value: user, label: user }))')

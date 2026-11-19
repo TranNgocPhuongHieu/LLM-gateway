@@ -272,3 +272,42 @@ export interface FAQItem {
   question: string
   answer: string
 }
+
+// ============================================================================
+// Customer Overview Usage Types (self-scoped, additive)
+// ============================================================================
+
+export interface SelfApiResponse<T> {
+  success: boolean
+  message?: string
+  data?: T
+}
+
+export type SelfBreakdownGroupBy = 'model' | 'token'
+
+export interface SelfBreakdownItem {
+  key: string
+  // Empty string for a token that was deleted (group_by=token only).
+  label: string
+  quota: number
+  count: number
+  token_used: number
+}
+
+export interface SelfBreakdownData {
+  total: { quota: number; count: number; token_used: number }
+  items: SelfBreakdownItem[]
+}
+
+export interface SelfErrorCategoryItem {
+  category: string
+  count: number
+  last_at: number
+  model_name: string
+}
+
+export interface SelfErrorSummaryData {
+  total: number
+  truncated: boolean
+  categories: SelfErrorCategoryItem[]
+}

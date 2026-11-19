@@ -16,257 +16,180 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
-import { getUserQuotaDates } from '@/features/dashboard/api'
-import { getPerfMetricsSummary } from '@/features/performance-metrics/api'
-import {
-  formatLatency,
-  formatUptimePct,
-  getSuccessRateTextClass,
-} from '@/features/performance-metrics/lib/format'
-import type { PerfModelSummary } from '@/features/performance-metrics/types'
-import { useStatus } from '@/hooks/use-status'
-import { formatQuotaWithCredit } from '@/lib/currency'
-import { formatNumber } from '@/lib/format'
-import { requireServerSuccess } from '@/lib/server-error-message'
-import { computeTimeRange } from '@/lib/time'
+import { formatQuotaWithCredit, resolveAppLocale } from '@/lib/currency'
+import { formatNumber, quotaUnitsToDollars } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
-const PERFORMANCE_WINDOW_HOURS = 24
+import { computeSpendKpis, type HealthLevel } from './overview-metrics'
+import { useCurrentMinute, useSpendKpiQueries } from './use-overview-usage'
+import { VND_PER_CREDIT } from './credit-vnd'
 
-type HealthLevel = 'healthy' | 'caution' | 'critical'
-
-const HEALTH_CONFIG: Record<HealthLevel, { labelKey: string }> = {
-  healthy: {
-    labelKey: 'Healthy',
-  },
-  caution: {
-    labelKey: 'Caution',
-  },
-  critical: {
-    labelKey: 'Low balance',
-  },
+const HEALTH_LABEL_KEY: Record<HealthLevel, string> = {
+  healthy: 'Healthy',
+  caution: 'Caution',
+  critical: 'Low balance',
 }
 
-function getHealthLevel(balance: number, dailyUsage: number): HealthLevel {
-  if (balance <= 0) return 'critical'
-  if (dailyUsage <= 0) return 'healthy'
-  const runway = balance / dailyUsage
-  if (runway < 3) return 'critical'
-  if (runway < 14) return 'caution'
-  return 'healthy'
+const HEALTH_BADGE_CLASS: Record<HealthLevel, string> = {
+  healthy: 'bg-emerald-500/15 text-emerald-400',
+  caution: 'bg-amber-500/15 text-amber-400',
+  critical: 'bg-red-500/15 text-red-400',
 }
 
-function getRunwayDays(balance: number, dailyUsage: number): number | null {
-  if (balance <= 0) return 0
-  if (dailyUsage <= 0) return null
-  return balance / dailyUsage
-}
+const CREDIT_FORMAT = {
+  abbreviate: false,
+  digitsLarge: 2,
+  digitsSmall: 4,
+} as const
 
-type WeightedMetric = 'avg_latency_ms' | 'avg_tps' | 'success_rate'
-
-function simpleAverage(
-  rows: PerfModelSummary[],
-  metric: WeightedMetric,
-  isValid: (value: number) => boolean
-): number {
-  let total = 0
-  let count = 0
-  for (const row of rows) {
-    const value = Number(row[metric])
-    if (!isValid(value)) continue
-    total += value
-    count++
-  }
-  return count > 0 ? total / count : Number.NaN
+function KpiCard(props: {
+  label: string
+  children: React.ReactNode
+  footer?: React.ReactNode
+  className?: string
+}) {
+  return (
+    <div
+      className={cn(
+        'bg-card flex min-w-0 flex-col gap-1.5 rounded-2xl border p-4 shadow-xs sm:p-5',
+        props.className
+      )}
+    >
+      <div className='text-muted-foreground text-xs'>{props.label}</div>
+      {props.children}
+      {props.footer}
+    </div>
+  )
 }
 
 export function SummaryCards() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const user = useAuthStore((state) => state.auth.user)
-  const { loading } = useStatus()
+  const now = useCurrentMinute()
+  const balanceQuota = Number(user?.quota ?? 0)
+  const spend = useSpendKpiQueries(now)
+  const locale = resolveAppLocale(i18n.resolvedLanguage || i18n.language)
 
-  const summaryTimeRange = useMemo(() => computeTimeRange(1), [])
-  const remainQuota = Number(user?.quota ?? 0)
-  const requestCount = Number(user?.request_count ?? 0)
-
-  const usageTrendQuery = useQuery({
-    queryKey: [
-      'dashboard',
-      'overview',
-      'summary-sparklines',
-      summaryTimeRange.start_timestamp,
-      summaryTimeRange.end_timestamp,
-    ],
-    queryFn: async () =>
-      requireServerSuccess(
-        await getUserQuotaDates({
-          start_timestamp: summaryTimeRange.start_timestamp,
-          end_timestamp: summaryTimeRange.end_timestamp,
-          default_time: 'hour',
-        })
-      ),
-    staleTime: 60 * 1000,
+  const kpis = computeSpendKpis({
+    balanceQuota,
+    todayQuota: spend.todayQuota ?? 0,
+    monthQuota: spend.monthQuota ?? 0,
+    lastMonthSamePeriodQuota: spend.lastMonthSamePeriodQuota ?? 0,
+    last7DaysQuota: spend.last7DaysQuota ?? 0,
+    now,
   })
+  // Health and run-out use the 7-day average; until it loads they assume none.
+  const healthLabel = t(HEALTH_LABEL_KEY[kpis.health])
+  const balanceCredits = quotaUnitsToDollars(balanceQuota)
+  const balanceVnd = Math.round(balanceCredits * VND_PER_CREDIT)
 
-  const metricsQuery = useQuery({
-    queryKey: ['perf-metrics-summary', PERFORMANCE_WINDOW_HOURS],
-    queryFn: async () =>
-      requireServerSuccess(
-        await getPerfMetricsSummary(PERFORMANCE_WINDOW_HOURS)
-      ),
-    staleTime: 60 * 1000,
-    retry: false,
-    meta: { errorToast: false },
-  })
+  // Undefined means the request is pending or failed; never show it as zero.
+  const quotaText = (quota: number | undefined) =>
+    quota === undefined ? '—' : formatQuotaWithCredit(quota, CREDIT_FORMAT)
 
-  const models = useMemo(
-    () =>
-      Array.isArray(metricsQuery.data?.data?.models)
-        ? metricsQuery.data.data.models
-        : [],
-    [metricsQuery.data]
-  )
+  const changeText =
+    kpis.monthChangePct === null
+      ? null
+      : `${new Intl.NumberFormat(locale, {
+          signDisplay: 'exceptZero',
+          maximumFractionDigits: 1,
+        }).format(kpis.monthChangePct)}%`
 
-  const perfSummary = useMemo(() => {
-    return {
-      avgLatencyMs: Math.round(
-        simpleAverage(
-          models,
-          'avg_latency_ms',
-          (v) => Number.isFinite(v) && v > 0
-        )
-      ),
-      successRate: simpleAverage(models, 'success_rate', Number.isFinite),
-    }
-  }, [models])
-
-  const recentUsage = useMemo(
-    () =>
-      (usageTrendQuery.data?.data ?? []).reduce(
-        (total, item) => total + (Number(item.quota) || 0),
-        0
-      ),
-    [usageTrendQuery.data?.data]
-  )
-
-  const healthLevel = getHealthLevel(remainQuota, recentUsage)
-  const healthCfg = HEALTH_CONFIG[healthLevel]
-  const runwayDays = getRunwayDays(remainQuota, recentUsage)
-
-  const remainCompactDisplay = formatQuotaWithCredit(remainQuota, {
-    compact: true,
-    abbreviate: false,
-  })
-  const remainFullDisplay = formatQuotaWithCredit(remainQuota, {
-    abbreviate: false,
-    digitsLarge: 0,
-    digitsSmall: 2,
-  })
-
-  let runwayDisplay: string
-  if (runwayDays !== null) {
-    if (runwayDays < 1) {
-      runwayDisplay = t('Less than 1 day left')
-    } else if (runwayDays > 999) {
-      runwayDisplay = `999+ ${t('days')}`
-    } else {
-      runwayDisplay = `~${formatNumber(Math.floor(runwayDays))} ${t('days')}`
-    }
-  } else if (remainQuota <= 0) {
-    runwayDisplay = t('Balance depleted')
-  } else {
-    runwayDisplay = `999+ ${t('days')}`
+  let runOutValue: string
+  let runOutHint: string
+  switch (kpis.runOut.kind) {
+    case 'depleted':
+      runOutValue = t('Balance depleted')
+      runOutHint = t('Top up to keep sending requests')
+      break
+    case 'no-usage':
+      runOutValue = t('No recent usage')
+      runOutHint = t('Based on the last {{days}} days', { days: 7 })
+      break
+    case 'date':
+      runOutValue = new Intl.DateTimeFormat(locale, {
+        dateStyle: 'medium',
+      }).format(kpis.runOut.date)
+      runOutHint = t('About {{days}} days at the last 7-day average', {
+        days: formatNumber(Math.floor(kpis.runOut.days), locale),
+      })
+      break
   }
 
-  const requestCountDisplay = loading ? '—' : formatNumber(requestCount)
-
   return (
-    <div className='bg-card overflow-hidden rounded-2xl border px-5 py-4 shadow-xs sm:px-6 sm:py-5'>
-      <div className='flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between'>
-        <div className='min-w-0 flex-1'>
-          <div className='flex items-center gap-2'>
-            <span className='text-muted-foreground text-xs'>
-              {t('Credit remaining')}
-            </span>
-            <span
-              className={cn(
-                'rounded-full px-2 py-0.5 text-[11px] font-medium',
-                healthLevel === 'critical'
-                  ? 'bg-red-500/15 text-red-400'
-                  : healthLevel === 'caution'
-                    ? 'bg-amber-500/15 text-amber-400'
-                    : 'bg-emerald-500/15 text-emerald-400'
-              )}
-            >
-              {t(healthCfg.labelKey)}
-            </span>
-          </div>
-          <div className='mt-1.5 text-2xl font-bold tracking-tight tabular-nums sm:text-3xl'>
-            {remainCompactDisplay}
-          </div>
-          <div className='text-muted-foreground mt-1 text-xs tabular-nums'>
-            {remainFullDisplay} · {t('runway prefix')} {runwayDisplay}
-          </div>
-        </div>
-
-        <div className='border-border/60 hidden h-14 border-l lg:block' />
-
-        <div className='min-w-[8rem] lg:px-4'>
-          <div className='text-muted-foreground text-xs'>
-            {t('Total Count')}
-          </div>
-          <div className='mt-1.5 text-xl font-bold tracking-tight tabular-nums sm:text-2xl'>
-            {requestCountDisplay}
-          </div>
-        </div>
-
-        <div className='border-border/60 hidden h-14 border-l lg:block' />
-
-        <div className='min-w-[9rem] lg:px-4'>
-          <div className='text-muted-foreground text-xs leading-snug'>
-            {t('Success rate')} · 24 {t('hours')}
-          </div>
-          <div
-            className={cn(
-              'mt-1.5 text-xl font-bold tracking-tight tabular-nums sm:text-2xl',
-              getSuccessRateTextClass(perfSummary.successRate)
-            )}
-          >
-            {metricsQuery.isLoading
-              ? '—'
-              : formatUptimePct(perfSummary.successRate)}
-          </div>
-        </div>
-
-        <div className='border-border/60 hidden h-14 border-l lg:block' />
-
-        <div className='flex items-center justify-between gap-4 lg:pl-4'>
-          <div className='min-w-[9rem]'>
-            <div className='text-muted-foreground text-xs leading-snug'>
-              {t('Average latency')} · 24 {t('hours')}
-            </div>
-            <div className='mt-1.5 text-xl font-bold tracking-tight tabular-nums sm:text-2xl'>
-              {metricsQuery.isLoading
-                ? '—'
-                : formatLatency(perfSummary.avgLatencyMs)}
-            </div>
-          </div>
-
+    <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-4'>
+      <KpiCard
+        label={t('Credit remaining')}
+        className='sm:col-span-2 xl:col-span-1'
+        footer={
           <Button
-            className='h-9 shrink-0 rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white hover:bg-blue-500'
+            className='mt-2 h-9 w-fit rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white hover:bg-blue-500'
             render={<Link to='/wallet' />}
           >
             {t('Open wallet')}
           </Button>
+        }
+      >
+        <div className='flex flex-wrap items-center gap-2'>
+          <span
+            className={cn(
+              'rounded-full px-2 py-0.5 text-[11px] font-medium',
+              HEALTH_BADGE_CLASS[kpis.health]
+            )}
+          >
+            {healthLabel}
+          </span>
         </div>
-      </div>
+        <div className='text-2xl font-bold tracking-tight tabular-nums sm:text-3xl'>
+          {formatQuotaWithCredit(balanceQuota, {
+            compact: true,
+            abbreviate: false,
+          })}
+        </div>
+        <div className='text-muted-foreground text-xs tabular-nums'>
+          ≈ {formatNumber(balanceVnd, locale)} VND
+        </div>
+      </KpiCard>
+
+      <KpiCard label={t('Spend today')}>
+        <div className='text-xl font-bold tracking-tight tabular-nums sm:text-2xl'>
+          {quotaText(spend.todayQuota)}
+        </div>
+        {spend.isError && (
+          <div className='text-muted-foreground text-xs'>
+            {t('Could not load usage. Try again later.')}
+          </div>
+        )}
+      </KpiCard>
+
+      <KpiCard label={t('Spend this month')}>
+        <div className='flex flex-wrap items-baseline gap-2'>
+          <span className='text-xl font-bold tracking-tight tabular-nums sm:text-2xl'>
+            {quotaText(spend.monthQuota)}
+          </span>
+          {changeText && (
+            <span className='text-muted-foreground text-xs tabular-nums'>
+              {changeText} {t('vs same period last month')}
+            </span>
+          )}
+        </div>
+      </KpiCard>
+
+      <KpiCard
+        label={t('Projected run-out')}
+        footer={
+          <div className='text-muted-foreground text-xs'>{runOutHint}</div>
+        }
+      >
+        <div className='text-xl font-bold tracking-tight tabular-nums sm:text-2xl'>
+          {spend.last7DaysQuota === undefined ? '—' : runOutValue}
+        </div>
+      </KpiCard>
     </div>
   )
 }

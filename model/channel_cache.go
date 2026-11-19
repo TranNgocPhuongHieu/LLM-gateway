@@ -230,24 +230,47 @@ func GetRandomSatisfiedChannel(
 		return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channels[0])
 	}
 
-	uniquePriorities := make(map[int]bool)
+	// Cached candidate IDs are sorted by descending priority during cache sync.
+	// Count priority transitions in that order instead of allocating a set and
+	// sorting it for every request.
+	priorityCount := 0
+	sortedByPriority := true
+	var previousPriority int64
+	var targetPriority int64
 	for _, channelId := range channels {
-		if channel, ok := channelsIDM[channelId]; ok {
-			uniquePriorities[int(channel.GetPriority())] = true
-		} else {
+		channel, ok := channelsIDM[channelId]
+		if !ok {
 			return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channelId)
 		}
+		priority := channel.GetPriority()
+		if priorityCount > 0 && priority > previousPriority {
+			sortedByPriority = false
+		}
+		if priorityCount == 0 || priority != previousPriority {
+			if priorityCount == retry {
+				targetPriority = priority
+			}
+			priorityCount++
+			previousPriority = priority
+		}
 	}
-	var sortedUniquePriorities []int
-	for priority := range uniquePriorities {
-		sortedUniquePriorities = append(sortedUniquePriorities, priority)
+	if !sortedByPriority {
+		uniquePriorities := make(map[int]bool)
+		for _, channelId := range channels {
+			uniquePriorities[int(channelsIDM[channelId].GetPriority())] = true
+		}
+		sortedUniquePriorities := make([]int, 0, len(uniquePriorities))
+		for priority := range uniquePriorities {
+			sortedUniquePriorities = append(sortedUniquePriorities, priority)
+		}
+		sort.Sort(sort.Reverse(sort.IntSlice(sortedUniquePriorities)))
+		if retry >= len(sortedUniquePriorities) {
+			retry = len(sortedUniquePriorities) - 1
+		}
+		targetPriority = int64(sortedUniquePriorities[retry])
+	} else if retry >= priorityCount {
+		targetPriority = previousPriority
 	}
-	sort.Sort(sort.Reverse(sort.IntSlice(sortedUniquePriorities)))
-
-	if retry >= len(uniquePriorities) {
-		retry = len(uniquePriorities) - 1
-	}
-	targetPriority := int64(sortedUniquePriorities[retry])
 
 	// get the priority for the given retry number
 	var sumWeight = 0

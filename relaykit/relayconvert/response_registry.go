@@ -99,13 +99,14 @@ type ResponseStreamState struct {
 	Quality   ResponseConverterQuality
 	Steps     []ResponseStep
 
-	specs              []ResponseConverterSpec
-	stepStates         []any
-	usage              *dto.Usage
-	diagnostics        []types.ConversionDiagnostic
-	pendingDiagnostics []types.ConversionDiagnostic
-	seenDiagnostics    map[conversionDiagnosticKey]struct{}
-	fallbackInfo       *convmeta.Values
+	specs               []ResponseConverterSpec
+	stepStates          []any
+	usage               *dto.Usage
+	diagnostics         []types.ConversionDiagnostic
+	pendingDiagnostics  []types.ConversionDiagnostic
+	seenDiagnostics     map[conversionDiagnosticKey]struct{}
+	reportedDiagnostics int
+	fallbackInfo        *convmeta.Values
 }
 
 type responseStreamUsageCarrier interface {
@@ -470,6 +471,18 @@ func (s *ResponseStreamState) Diagnostics() []types.ConversionDiagnostic {
 		return nil
 	}
 	return append([]types.ConversionDiagnostic{}, s.diagnostics...)
+}
+
+// TakeNewDiagnostics returns diagnostics observed since the previous call.
+// Diagnostics keeps its cumulative public semantics for callers that need the
+// complete stream history.
+func (s *ResponseStreamState) TakeNewDiagnostics() []types.ConversionDiagnostic {
+	if s == nil || len(s.diagnostics) <= s.reportedDiagnostics {
+		return nil
+	}
+	newDiagnostics := append([]types.ConversionDiagnostic(nil), s.diagnostics[s.reportedDiagnostics:]...)
+	s.reportedDiagnostics = len(s.diagnostics)
+	return newDiagnostics
 }
 
 func executeResponseSpec(c context.Context, info convmeta.Meta, from types.RelayFormat, target types.RelayFormat, response any, spec ResponseConverterSpec) (*ResponseResult, error) {

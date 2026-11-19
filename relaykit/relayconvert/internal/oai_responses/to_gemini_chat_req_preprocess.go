@@ -44,14 +44,19 @@ func filterGeminiResponsesTools(raw []byte) ([]byte, error) {
 	}
 
 	filtered := make([]map[string]any, 0, len(tools))
+	changed := false
 	for _, tool := range tools {
 		if strings.TrimSpace(kitutil.Interface2String(tool["type"])) != "function" {
+			changed = true
 			continue
 		}
 		filtered = append(filtered, tool)
 	}
 	if len(filtered) == 0 {
 		return nil, nil
+	}
+	if !changed {
+		return raw, nil
 	}
 	return kitutil.Marshal(filtered)
 }
@@ -77,19 +82,25 @@ func filterGeminiResponsesInput(raw []byte) ([]byte, error) {
 	}
 
 	filtered := make([]map[string]any, 0, len(items))
+	changed := false
 	for _, item := range items {
 		itemType := strings.TrimSpace(kitutil.Interface2String(item["type"]))
 		switch itemType {
 		case geminiResponsesInputTypeCustomToolCall, geminiResponsesInputTypeCustomToolCallOutput:
+			changed = true
 			continue
 		case geminiResponsesInputTypeFunctionCallOutput:
 			if _, ok := skippedCustomCallIDs[strings.TrimSpace(kitutil.Interface2String(item["call_id"]))]; ok {
+				changed = true
 				continue
 			}
 		}
 		filtered = append(filtered, item)
 	}
 
+	if !changed {
+		return raw, nil
+	}
 	return kitutil.Marshal(filtered)
 }
 

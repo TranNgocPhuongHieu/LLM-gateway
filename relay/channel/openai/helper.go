@@ -54,7 +54,9 @@ func handleClaudeFormat(c *gin.Context, data string, info *relaycommon.RelayInfo
 		return fmt.Errorf("expected Claude stream responses, got %T", result.Value)
 	}
 	for _, resp := range claudeResponses {
-		helper.ClaudeData(c, *resp)
+		if err := helper.ClaudeData(c, *resp); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -115,7 +117,9 @@ func sendGeminiStreamResults(c *gin.Context, results []relayconvert.ResponseResu
 			return err
 		}
 		c.Render(-1, common.CustomEvent{Data: "data: " + string(data)})
-		_ = helper.FlushWriter(c)
+		if err := helper.FlushWriter(c); err != nil {
+			return err
+		}
 	}
 	return nil
 }

@@ -723,6 +723,15 @@ func (user *User) ClearBinding(bindingType string) error {
 		return errors.New("user id is empty")
 	}
 
+	if bindingType == ExternalIdentityProviderGoogle {
+		if err := DB.Transaction(func(tx *gorm.DB) error {
+			return ReleaseExternalIdentityWithTx(tx, ExternalIdentityProviderGoogle, user.Id)
+		}); err != nil {
+			return err
+		}
+		return updateUserCache(*user)
+	}
+
 	bindingColumnMap := map[string]string{
 		"email":    "email",
 		"github":   "github_id",

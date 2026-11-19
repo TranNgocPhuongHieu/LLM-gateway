@@ -7,7 +7,10 @@ import { AuthDialog, AuthEntryRoute } from "../components/auth-dialog";
 import { openAuthDialog, useAuthDialogState } from "@/stores/auth-dialog-store";
 import { useAuthStore } from "@/stores/auth-store";
 
-const { navigateMock } = vi.hoisted(() => ({ navigateMock: vi.fn() }));
+const { navigateMock, statusState } = vi.hoisted(() => ({
+  navigateMock: vi.fn(),
+  statusState: { status: { register_enabled: true } as Record<string, unknown> },
+}));
 
 vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => navigateMock,
@@ -18,7 +21,11 @@ vi.mock("react-i18next", () => ({
 }));
 
 vi.mock("@/hooks/use-status", () => ({
-  useStatus: () => ({ status: { register_enabled: true } }),
+  useStatus: () => statusState,
+}));
+
+vi.mock("@/lib/currency", () => ({
+  formatQuotaWithCredit: (quota: number) => `${quota / 500000} credit`,
 }));
 
 vi.mock("@/features/auth/sign-in/components/user-auth-form", () => ({
@@ -40,6 +47,7 @@ vi.mock("@/features/auth/otp/components/otp-form", () => ({
 afterEach(cleanup);
 
 beforeEach(() => {
+  statusState.status = { register_enabled: true };
   useAuthDialogState.getState().close();
   useAuthStore.getState().auth.reset();
 });
@@ -85,5 +93,28 @@ describe("authentication dialog", () => {
       expect(navigateMock).toHaveBeenCalledWith({ to: "/", replace: true });
     });
     expect(useAuthDialogState.getState().redirectTo).toBe("/pricing?group=team");
+  });
+
+  it("offers Google sign-up first and hides password sign-up when it is disabled", async () => {
+    statusState.status = {
+      register_enabled: true,
+      google_oauth_enabled: true,
+      password_register_enabled: false,
+      quota_for_new_user: 2_500_000,
+    };
+    render(<AuthDialog />);
+
+    openAuthDialog("sign-up");
+    expect(await screen.findByRole("dialog", { name: "Create an account" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sign up with Google" })).toBeTruthy();
+    expect(screen.getByText("New accounts get {{credit}} free credit to try the API.")).toBeTruthy();
+    expect(screen.queryByText("Sign-up form")).toBeNull();
+  });
+
+  it("keeps the password sign-up form when Google is not configured", async () => {
+    render(<AuthDialog />);
+    openAuthDialog("sign-up");
+    expect(await screen.findByText("Sign-up form")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Sign up with Google" })).toBeNull();
   });
 });

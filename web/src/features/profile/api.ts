@@ -28,6 +28,7 @@ import type {
   UpdateUserSettingsRequest,
   AccountSecurityResult,
   EmailBindingFlow,
+  GoogleBindingStart,
 } from "./types";
 
 // ============================================================================
@@ -110,6 +111,28 @@ export function deleteUserAccount(
 // ============================================================================
 // Account Binding APIs
 // ============================================================================
+
+/**
+ * Start linking Google to the signed-in account. Returns Google's consent URL;
+ * the result comes back on /oauth/google?mode=bind.
+ */
+export function startGoogleBinding(
+  proofToken: string,
+  signal: AbortSignal,
+): Promise<GoogleBindingStart> {
+  return authResult(
+    api.post(
+      "/api/oauth/google/bind/start",
+      undefined,
+      {
+        ...authRequestOptions,
+        headers: { "X-Security-Proof": proofToken },
+        singleUseAuthorization: true,
+        signal,
+      },
+    ),
+  );
+}
 
 /**
  * Bind email account

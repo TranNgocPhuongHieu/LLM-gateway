@@ -43,6 +43,10 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.POST("/oauth/email/bind/start", middleware.UserAuth(), middleware.CriticalRateLimit(), middleware.UserCriticalRateLimit("account-security"), middleware.EmailVerificationRateLimit(), middleware.DisableCache(), controller.EmailBindStart)
 		apiRouter.POST("/oauth/email/bind/resend", middleware.UserAuth(), middleware.CriticalRateLimit(), middleware.UserCriticalRateLimit("account-security"), middleware.EmailVerificationRateLimit(), middleware.DisableCache(), controller.EmailBindResend)
 		apiRouter.POST("/oauth/email/bind", middleware.UserAuth(), middleware.CriticalRateLimit(), middleware.UserCriticalRateLimit("account-security"), middleware.DisableCache(), controller.EmailBind)
+		apiRouter.POST("/oauth/google/start", middleware.CriticalRateLimit(), anonymousRequestBodyLimit, middleware.DisableCache(), controller.GoogleOAuthStart)
+		apiRouter.GET("/oauth/google/callback", middleware.CriticalRateLimit(), middleware.DisableCache(), controller.GoogleOAuthCallback)
+		apiRouter.POST("/oauth/google/finish", middleware.SessionCookieOriginGuard(), middleware.CriticalRateLimit(), anonymousRequestBodyLimit, middleware.DisableCache(), controller.GoogleOAuthFinish)
+		apiRouter.POST("/oauth/google/bind/start", middleware.UserAuth(), middleware.CriticalRateLimit(), middleware.UserCriticalRateLimit("account-security"), middleware.DisableCache(), controller.GoogleBindStart)
 		apiRouter.GET("/ratio_config", middleware.CriticalRateLimit(), controller.GetRatioConfig)
 
 		apiRouter.POST("/stripe/webhook", anonymousRequestBodyLimit, controller.StripeWebhook)

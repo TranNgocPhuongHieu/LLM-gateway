@@ -20,6 +20,7 @@ import type { AuthSettings } from "../types";
 import { createSectionRegistry } from "../utils/section-registry";
 import { BasicAuthSection } from "./basic-auth-section";
 import { BotProtectionSection } from "./bot-protection-section";
+import { GoogleOAuthSection } from "./google-oauth-section";
 
 const AUTH_SECTIONS = [
   {
@@ -35,6 +36,20 @@ const AUTH_SECTIONS = [
           EmailDomainRestrictionEnabled: settings.EmailDomainRestrictionEnabled,
           EmailAliasRestrictionEnabled: settings.EmailAliasRestrictionEnabled,
           EmailDomainWhitelist: settings.EmailDomainWhitelist,
+        }}
+      />
+    ),
+  },
+  {
+    id: "google-oauth",
+    titleKey: "Google Sign-in",
+    build: (settings: AuthSettings) => (
+      <GoogleOAuthSection
+        serverAddress={settings.ServerAddress}
+        defaultValues={{
+          GoogleOAuthEnabled: settings.GoogleOAuthEnabled,
+          GoogleClientId: settings.GoogleClientId,
+          GoogleClientSecret: "",
         }}
       />
     ),

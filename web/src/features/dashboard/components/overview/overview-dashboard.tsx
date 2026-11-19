@@ -66,6 +66,11 @@ import { ModelCharts } from '../models/model-charts'
 import { RecentUsagePanel, useDashboardBalance } from './recent-usage-panel'
 import { SummaryCards } from './summary-cards'
 import { AdminUsageTrackingCard } from './admin-usage-tracking-card'
+import {
+  buildClientConfig,
+  buildCurlCommand,
+  type ClientConfigKind,
+} from './client-config'
 import { DailyCostChart } from './daily-cost-chart'
 import { LowBalanceBanner } from './low-balance-banner'
 import { OverviewRangePicker } from './overview-range-picker'
@@ -99,6 +104,7 @@ type DashboardActionPath =
   | '/channels'
   | '/usage-logs'
   | '/pricing'
+  | '/docs'
 
 interface StartStep {
   title: string
@@ -176,19 +182,6 @@ function formatDisplayKey(key?: string): string {
   if (!key) return 'sk-...'
   if (key.length <= 14) return key
   return `${key.slice(0, 7)}...${key.slice(-4)}`
-}
-
-function buildCurlCommand(args: {
-  endpoint: string
-  apiKey: string
-  model: string
-}): string {
-  return [
-    `curl ${args.endpoint} \\`,
-    '  -H "Content-Type: application/json" \\',
-    `  -H "Authorization: Bearer ${args.apiKey}" \\`,
-    `  -d '{"model":"${args.model}","messages":[{"role":"user","content":"Say hello in one sentence."}]}'`,
-  ].join('\n')
 }
 
 function SetupGuideBackdrop(props: { compact?: boolean }) {
@@ -300,7 +293,7 @@ function RequestPreview(props: {
     model: props.example.model,
   })
   const previewLines = previewCurl.split('\n')
-  const handleCopyRequest = async () => {
+  const handleCopyRequest = async (kind: ClientConfigKind) => {
     if (!props.example.keyId || isCopying) return
 
     setIsCopying(true)
@@ -312,12 +305,12 @@ function RequestPreview(props: {
         return
       }
 
-      const realCurl = buildCurlCommand({
+      const config = buildClientConfig(kind, {
         endpoint: props.example.endpoint,
         apiKey: `sk-${key}`,
         model: props.example.model,
       })
-      const copied = await copyToClipboard(realCurl)
+      const copied = await copyToClipboard(config)
       if (copied) {
         toast.success(t('Copied to clipboard'))
       } else {
@@ -368,7 +361,7 @@ function RequestPreview(props: {
             size='sm'
             className='h-7 gap-1.5 px-2 text-xs'
             disabled={isCopying}
-            onClick={handleCopyRequest}
+            onClick={() => handleCopyRequest('curl')}
             aria-label={t('Copy ready-to-run curl')}
           >
             <Copy data-icon='inline-start' />
@@ -399,6 +392,33 @@ function RequestPreview(props: {
           ))}
         </div>
       </div>
+
+      {props.example.ready && (
+        <div className='mb-3 flex flex-wrap items-center gap-2 text-xs'>
+          <span className='text-muted-foreground'>{t('Copy config for')}</span>
+          <Button
+            variant='outline'
+            size='sm'
+            className='h-7 px-2 text-xs'
+            disabled={isCopying}
+            onClick={() => handleCopyRequest('claude-code')}
+          >
+            Claude Code
+          </Button>
+          <Button
+            variant='outline'
+            size='sm'
+            className='h-7 px-2 text-xs'
+            disabled={isCopying}
+            onClick={() => handleCopyRequest('codex')}
+          >
+            Codex
+          </Button>
+          <Link to='/docs' className='text-primary hover:underline'>
+            {t('More tools in Docs')}
+          </Link>
+        </div>
+      )}
 
       <div className='grid gap-2'>
         {props.signals.map((signal) => {
@@ -551,7 +571,7 @@ export function OverviewDashboard() {
       {
         title: t('Send a request'),
         description: t('Verify routing with your client or API key'),
-        to: '/keys',
+        to: '/docs',
         icon: KeyRound,
         completed: requestCount > 0,
       },
@@ -640,8 +660,10 @@ export function OverviewDashboard() {
   const completedStepCount = startSteps.filter((step) => step.completed).length
   const setupComplete = completedStepCount === startSteps.length
   const setupStatusReady = apiKeysQuery.isFetched && Boolean(user)
+  // New accounts see the checklist until they send their first request,
+  // unless they collapsed it themselves.
   const setupGuideExpanded =
-    manualSetupGuideExpanded ?? false
+    manualSetupGuideExpanded ?? (setupStatusReady && !setupComplete)
 
   const handleSetupGuideToggle = () => {
     const nextExpanded = !setupGuideExpanded

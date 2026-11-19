@@ -98,6 +98,10 @@ func BindVerificationOperation(operation VerificationOperation) (VerificationBin
 			if len(fields) != 2 || common.Validate.Var(context.Email, "required,email") != nil || context.Code != "" {
 				return VerificationBinding{}, ErrVerificationContextInvalid
 			}
+		case "google":
+			if len(fields) != 1 || context.Email != "" || context.Code != "" {
+				return VerificationBinding{}, ErrVerificationContextInvalid
+			}
 		default:
 			return VerificationBinding{}, ErrVerificationContextInvalid
 		}

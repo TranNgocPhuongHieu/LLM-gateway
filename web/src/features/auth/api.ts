@@ -76,6 +76,56 @@ export async function login(payload: LoginPayload): Promise<LoginResponse> {
   }
 }
 
+// ----------------------------------------------------------------------------
+// Google sign-in
+// ----------------------------------------------------------------------------
+
+const GOOGLE_REDIRECT_STORAGE_KEY = "google_oauth_redirect";
+
+// Starts Google sign-in/sign-up and returns Google's consent URL. The server
+// also sets an HttpOnly cookie that ties the round trip to this browser.
+export async function startGoogleLogin(): Promise<string> {
+  const res = await api.post<ApiResponse<{ url: string }>>(
+    "/api/oauth/google/start",
+    undefined,
+    { skipAuthRefresh: true, skipBusinessError: true, skipErrorHandler: true },
+  );
+  if (!res.data?.success || !res.data.data?.url) {
+    throw new Error(res.data?.message || "Google sign-in is not available.");
+  }
+  return res.data.data.url;
+}
+
+// Exchanges the one-time ticket from the callback for a session (or a
+// login verification challenge, exactly like password sign-in).
+export async function finishGoogleLogin(ticket: string): Promise<LoginResponse> {
+  const res = await api.post<LoginResponse>(
+    "/api/oauth/google/finish",
+    { ticket },
+    { skipAuthRefresh: true, skipBusinessError: true, skipErrorHandler: true },
+  );
+  return res.data;
+}
+
+export function rememberGoogleRedirect(redirectTo?: string) {
+  try {
+    if (redirectTo) sessionStorage.setItem(GOOGLE_REDIRECT_STORAGE_KEY, redirectTo);
+    else sessionStorage.removeItem(GOOGLE_REDIRECT_STORAGE_KEY);
+  } catch {
+    // Storage may be unavailable (private mode); fall back to the dashboard.
+  }
+}
+
+export function takeGoogleRedirect(): string | undefined {
+  try {
+    const value = sessionStorage.getItem(GOOGLE_REDIRECT_STORAGE_KEY) ?? undefined;
+    sessionStorage.removeItem(GOOGLE_REDIRECT_STORAGE_KEY);
+    return value;
+  } catch {
+    return undefined;
+  }
+}
+
 interface LogoutRuntime {
   getExpectedSID: () => string | undefined;
   request: (expectedSID?: string) => Promise<ApiResponse>;

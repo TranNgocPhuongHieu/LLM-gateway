@@ -103,6 +103,11 @@ var SMTPToken = ""
 var TurnstileSiteKey = ""
 var TurnstileSecretKey = ""
 
+// Google sign-in. The secret is write-only through the options API.
+var GoogleOAuthEnabled = false
+var GoogleClientId = ""
+var GoogleClientSecret = ""
+
 var QuotaForNewUser = 0
 var QuotaForInviter = 0
 var QuotaForInvitee = 0

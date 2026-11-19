@@ -32,6 +32,31 @@ func TestSepaySignatureGolden(t *testing.T) {
 	}
 }
 
+func TestSepayAdminConfirmGuards(t *testing.T) {
+	for _, tc := range []struct {
+		role int
+		body string
+		want int
+	}{
+		{common.RoleCommonUser, `{}`, http.StatusForbidden},
+		{common.RoleRootUser, `{}`, http.StatusOK},
+		{common.RoleRootUser, `invalid`, http.StatusOK},
+	} {
+		r := gin.New()
+		r.POST("/confirm", func(c *gin.Context) { c.Set("role", tc.role) }, SepayAdminConfirm)
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", "/confirm", strings.NewReader(tc.body))
+		req.Header.Set("Content-Type", "application/json")
+		r.ServeHTTP(w, req)
+		if w.Code != tc.want {
+			t.Fatalf("role %d: status %d", tc.role, w.Code)
+		}
+		if tc.want == http.StatusOK && !strings.Contains(w.Body.String(), `"success":false`) {
+			t.Fatal("invalid receipt accepted")
+		}
+	}
+}
+
 func TestSepayBankWebhookAuthenticatedSettlement(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	if err != nil {

@@ -193,7 +193,9 @@ func BuildBinanceQuote(in QuoteInput) (Quote, error) {
 		return Quote{}, errors.New("invalid bonus percent")
 	}
 	feeAmount := base.Mul(fee).Div(decimal.NewFromInt(100))
-	payable := base.Add(feeAmount).RoundUp(6)
+	// Round the payable amount up to whole cents so users type at most two
+	// decimals; credits are still computed from the base amount below.
+	payable := base.Add(feeAmount).RoundUp(2)
 	units := payable.Mul(decimal.NewFromInt(BinanceUSDTScale)).IntPart()
 	baseVND := base.Mul(rate).RoundDown(0).IntPart()
 	bonusVND := decimal.NewFromInt(baseVND).Mul(bonus).Div(decimal.NewFromInt(100)).RoundDown(0).IntPart()
@@ -469,16 +471,50 @@ func (c *BinanceHTTPClient) DepositAddress(ctx context.Context, coin, network st
 }
 
 type depositHistoryResponse struct {
-	ID               string `json:"id"`
-	Amount           string `json:"amount"`
-	Coin             string `json:"coin"`
-	Network          string `json:"network"`
-	Status           int    `json:"status"`
-	Address          string `json:"address"`
-	TxID             string `json:"txId"`
-	InsertTime       int64  `json:"insertTime"`
-	ConfirmTimes     string `json:"confirmTimes"`
-	TravelRuleStatus string `json:"travelRuleStatus"`
+	ID               string                  `json:"id"`
+	Amount           string                  `json:"amount"`
+	Coin             string                  `json:"coin"`
+	Network          string                  `json:"network"`
+	Status           int                     `json:"status"`
+	Address          string                  `json:"address"`
+	TxID             string                  `json:"txId"`
+	InsertTime       int64                   `json:"insertTime"`
+	ConfirmTimes     string                  `json:"confirmTimes"`
+	TravelRuleStatus binanceTravelRuleStatus `json:"travelRuleStatus"`
+}
+
+// binanceTravelRuleStatus accepts Binance's documented integer form
+// (0 = no action needed, 1 = deposit information required) as well as the
+// legacy string form, normalising both to a string for storage and gating.
+type binanceTravelRuleStatus string
+
+func (s *binanceTravelRuleStatus) UnmarshalJSON(raw []byte) error {
+	trimmed := strings.TrimSpace(string(raw))
+	if trimmed == "null" {
+		*s = ""
+		return nil
+	}
+	if strings.HasPrefix(trimmed, `"`) {
+		var value string
+		if err := json.Unmarshal([]byte(trimmed), &value); err != nil {
+			return err
+		}
+		*s = binanceTravelRuleStatus(value)
+		return nil
+	}
+	value, err := strconv.ParseInt(trimmed, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid Binance travelRuleStatus %q", trimmed)
+	}
+	*s = binanceTravelRuleStatus(strconv.FormatInt(value, 10))
+	return nil
+}
+
+// binanceTravelRuleCleared reports whether a deposit needs no travel rule
+// action: Binance's integer 0, the legacy "COMPLETE" string, or no status.
+func binanceTravelRuleCleared(status string) bool {
+	normalized := strings.ToUpper(strings.TrimSpace(status))
+	return normalized == "" || normalized == "0" || normalized == "COMPLETE"
 }
 
 func parseUSDTUnits(raw string) (int64, error) {
@@ -506,6 +542,11 @@ func (c *BinanceHTTPClient) DepositHistory(ctx context.Context, network string, 
 			return nil, err
 		}
 		for _, row := range page {
+			// Binance may ignore the network filter and return deposits from
+			// other networks; those are ingested by that network's own poll.
+			if row.Network != "" && !strings.EqualFold(row.Network, network) {
+				continue
+			}
 			units, err := parseUSDTUnits(row.Amount)
 			if err != nil {
 				return nil, fmt.Errorf("invalid Binance deposit %s: %w", row.ID, err)
@@ -513,7 +554,7 @@ func (c *BinanceHTTPClient) DepositHistory(ctx context.Context, network string, 
 			if row.ID == "" || row.Coin != BinanceCoinUSDT || row.Network == "" || row.Address == "" || row.InsertTime <= 0 {
 				return nil, errors.New("Binance deposit response missing required identity fields")
 			}
-			result = append(result, BinanceDepositRecord{ProviderDepositID: row.ID, Coin: row.Coin, Network: row.Network, Address: row.Address, AmountUnits: units, Status: row.Status, InsertTime: time.UnixMilli(row.InsertTime), TxID: row.TxID, ConfirmTimes: row.ConfirmTimes, TravelRuleStatus: row.TravelRuleStatus})
+			result = append(result, BinanceDepositRecord{ProviderDepositID: row.ID, Coin: row.Coin, Network: row.Network, Address: row.Address, AmountUnits: units, Status: row.Status, InsertTime: time.UnixMilli(row.InsertTime), TxID: row.TxID, ConfirmTimes: row.ConfirmTimes, TravelRuleStatus: string(row.TravelRuleStatus)})
 		}
 		if len(page) < 1000 {
 			return result, nil

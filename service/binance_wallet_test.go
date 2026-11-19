@@ -152,6 +152,55 @@ func TestBinanceDepositHistoryParsesIdentityAndTravelRule(t *testing.T) {
 	}
 }
 
+func TestBinanceDepositHistoryParsesNumericTravelRuleStatus(t *testing.T) {
+	// Shape follows Binance's documented response: travelRuleStatus is an int.
+	body := `[{"id":"dep-0","amount":"10.200000","coin":"USDT","network":"BSC","status":1,"address":"0xgood","txId":"tx-0","insertTime":1700000000000,"confirmTimes":"1/1","transferType":0,"walletType":0,"travelRuleStatus":0},` +
+		`{"id":"dep-1","amount":"20.400000","coin":"USDT","network":"BSC","status":1,"address":"0xgood","txId":"tx-1","insertTime":1700000000000,"confirmTimes":"1/1","travelRuleStatus":1},` +
+		`{"id":"dep-n","amount":"30.000000","coin":"USDT","network":"BSC","status":1,"address":"0xgood","txId":"tx-n","insertTime":1700000000000,"confirmTimes":"1/1","travelRuleStatus":null}]`
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}, nil
+	})}
+	c, err := NewBinanceHTTPClient(BinanceHTTPClientConfig{APIKey: "k", APISecret: "s", BaseURL: BinanceProductionBaseURL, HTTPClient: client, MaxAttempts: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := c.DepositHistory(context.Background(), "BSC", time.UnixMilli(1699999999000), time.UnixMilli(1700000001000))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 3 || rows[0].TravelRuleStatus != "0" || rows[1].TravelRuleStatus != "1" || rows[2].TravelRuleStatus != "" {
+		t.Fatalf("unexpected travel rule statuses: %+v", rows)
+	}
+}
+
+func TestBinanceDepositHistoryDropsOtherNetworks(t *testing.T) {
+	// Observed in production: a TRX-filtered query also returned a BSC deposit.
+	body := `[{"id":"dep-bsc","amount":"30","coin":"USDT","network":"BSC","status":1,"address":"0xgood","txId":"tx-bsc","insertTime":1700000000000,"confirmTimes":"1/1","travelRuleStatus":0},` +
+		`{"id":"dep-trx","amount":"20.400000","coin":"USDT","network":"TRX","status":1,"address":"t-good","txId":"tx-trx","insertTime":1700000000000,"confirmTimes":"1/1","travelRuleStatus":0}]`
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}, nil
+	})}
+	c, err := NewBinanceHTTPClient(BinanceHTTPClientConfig{APIKey: "k", APISecret: "s", BaseURL: BinanceProductionBaseURL, HTTPClient: client, MaxAttempts: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := c.DepositHistory(context.Background(), "TRX", time.UnixMilli(1699999999000), time.UnixMilli(1700000001000))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0].ProviderDepositID != "dep-trx" || rows[0].Network != "TRX" {
+		t.Fatalf("expected only the TRX deposit, got %+v", rows)
+	}
+}
+
+func TestBinanceTravelRuleCleared(t *testing.T) {
+	for status, want := range map[string]bool{"": true, "0": true, "COMPLETE": true, "complete": true, "1": false, "INCOMPLETE": false, "2": false} {
+		if got := binanceTravelRuleCleared(status); got != want {
+			t.Fatalf("binanceTravelRuleCleared(%q) = %v, want %v", status, got, want)
+		}
+	}
+}
+
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
@@ -189,5 +238,16 @@ func TestMockBinanceClientFiltersByNetworkAndTime(t *testing.T) {
 	rows, err := mock.DepositHistory(context.Background(), "BEP20", now, now.Add(2*time.Minute))
 	if err != nil || len(rows) != 1 || rows[0].ProviderDepositID != "a" || mock.Calls != 1 {
 		t.Fatalf("unexpected mock result: %+v calls=%d err=%v", rows, mock.Calls, err)
+	}
+}
+
+func TestBuildBinanceQuoteRoundsPayableUpToCents(t *testing.T) {
+	q, err := BuildBinanceQuote(QuoteInput{BaseUSDT: "13", FeePercent: "2.5", USDTToVND: "26000", QuotaPerUnit: "500000", BonusPercent: "0", MinUSDT: "10", MaxUSDT: "100"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 13 + 2.5% = 13.325 -> 13.33; credits stay based on the 13 USDT base.
+	if q.PayableUSDT != "13.330000" || q.AmountUnits != 13_330_000 || q.AmountVND != 338000 || q.Credits != 338 {
+		t.Fatalf("payable not rounded to cents: %+v", q)
 	}
 }

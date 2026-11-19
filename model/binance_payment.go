@@ -280,18 +280,20 @@ func MarkBinanceAddressesVerified() error {
 }
 
 // BinanceTopUp stores a monetary/quota snapshot for one unique-amount order.
-// AmountUnits is USDT scaled by 1e6; it is the matching and uniqueness key.
+// AmountUnits is USDT scaled by 1e6; it is the matching key. An amount is
+// unique only among orders that can still be matched (see
+// allocateBinanceAmount), so the composite index is intentionally non-unique.
 type BinanceTopUp struct {
 	ID                   int64           `json:"id" gorm:"primaryKey"`
 	TopUpID              int             `json:"top_up_id" gorm:"uniqueIndex;not null"`
 	UserID               int             `json:"user_id" gorm:"index;not null;uniqueIndex:binance_user_request"`
 	RequestID            string          `json:"-" gorm:"type:varchar(64);not null;uniqueIndex:binance_user_request"`
-	AccountScope         string          `json:"-" gorm:"type:varchar(128);not null;default:'unverified';uniqueIndex:binance_scope_network_amount"`
+	AccountScope         string          `json:"-" gorm:"type:varchar(128);not null;default:'unverified';index:binance_scope_network_amount"`
 	TradeNo              string          `json:"trade_no" gorm:"uniqueIndex;type:varchar(255);not null"`
-	Network              string          `json:"network" gorm:"type:varchar(16);not null;uniqueIndex:binance_scope_network_amount"`
+	Network              string          `json:"network" gorm:"type:varchar(16);not null;index:binance_scope_network_amount"`
 	Coin                 string          `json:"coin" gorm:"type:varchar(16);not null;default:'USDT'"`
 	DepositAddress       string          `json:"deposit_address" gorm:"type:varchar(128);not null"`
-	AmountUnits          int64           `json:"amount_units" gorm:"not null;uniqueIndex:binance_scope_network_amount"`
+	AmountUnits          int64           `json:"amount_units" gorm:"not null;index:binance_scope_network_amount"`
 	RequestedAmountUnits int64           `json:"-" gorm:"not null;default:0"`
 	RequestedAmountUSDT  string          `json:"requested_amount_usdt" gorm:"type:numeric(30,6);not null;default:0"`
 	FeeAmountUSDT        string          `json:"fee_amount_usdt" gorm:"type:numeric(30,6);not null;default:0"`
@@ -411,7 +413,7 @@ func CreateBinanceTopUp(input BinanceTopUpInput) (*BinanceTopUp, error) {
 		if !isBinanceAmountCollision(err) {
 			return nil, err
 		}
-		input.AmountUnits++
+		input.AmountUnits += BinanceAmountStepUnits
 		input.AmountUSDT = decimal.NewFromInt(input.AmountUnits).Div(decimal.NewFromInt(1_000_000)).StringFixed(6)
 		if err := recomputeBinanceSnapshot(&input); err != nil {
 			return nil, err
@@ -438,6 +440,91 @@ func recomputeBinanceSnapshot(input *BinanceTopUpInput) error {
 	input.Credits = (input.AmountVND + bonusVND) / 1000
 	if input.Credits <= 0 || input.RequestedAmountUnits <= 0 {
 		return errors.New("unique amount is below one credit")
+	}
+	return nil
+}
+
+const (
+	// BinanceAmountStepUnits is the uniqueness step (0.01 USDT) so payable
+	// amounts stay short enough for users to type by hand.
+	BinanceAmountStepUnits int64 = 10_000
+	binanceAmountMaxSlots        = 100
+)
+
+// ErrBinanceAmountBusy means every nearby amount is held by a live order.
+var ErrBinanceAmountBusy = errors.New("binance amount slots are busy, try a different amount")
+
+// lockBinanceAmountAllocation serializes amount allocation per account scope
+// and network for the rest of tx, so two concurrent orders cannot pick the
+// same free amount now that the composite index is not unique.
+//   - PostgreSQL: transaction-level advisory lock.
+//   - MySQL: the locking range read in allocateBinanceAmount takes next-key
+//     locks on the composite index.
+//   - SQLite: the single-writer model serializes the write transaction.
+func lockBinanceAmountAllocation(tx *gorm.DB, accountScope, network string) error {
+	if common.UsingMainDatabase(common.DatabaseTypePostgreSQL) {
+		return tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", "binance_amount:"+accountScope+":"+network).Error
+	}
+	return nil
+}
+
+// allocateBinanceAmount returns the first free amount starting at candidate,
+// stepping by BinanceAmountStepUnits. An amount is held while its order is not
+// paid and its late-reconcile window is open, so a late deposit can never be
+// ambiguous between two orders. Expired and voided orders keep their amount
+// for that window as well.
+func allocateBinanceAmount(tx *gorm.DB, accountScope, network string, candidate int64, now time.Time) (int64, error) {
+	if err := lockBinanceAmountAllocation(tx, accountScope, network); err != nil {
+		return 0, err
+	}
+	upper := candidate + BinanceAmountStepUnits*binanceAmountMaxSlots
+	var held []int64
+	if err := lockForUpdate(tx.Model(&BinanceTopUp{})).
+		Where("account_scope = ? AND network = ? AND amount_units >= ? AND amount_units < ? AND status <> ? AND late_reconcile_until > ?", accountScope, network, candidate, upper, BinanceOrderPaid, now).
+		Pluck("amount_units", &held).Error; err != nil {
+		return 0, err
+	}
+	used := make(map[int64]struct{}, len(held))
+	for _, units := range held {
+		used[units] = struct{}{}
+	}
+	for units := candidate; units < upper; units += BinanceAmountStepUnits {
+		if _, ok := used[units]; !ok {
+			return units, nil
+		}
+	}
+	return 0, ErrBinanceAmountBusy
+}
+
+// migrateBinanceAmountIndex turns the legacy unique amount index into a plain
+// index under the same name. Keeping the name lets an older binary roll back
+// without AutoMigrate trying to recreate a unique index over reused amounts.
+func migrateBinanceAmountIndex(db *gorm.DB) error {
+	const indexName = "binance_scope_network_amount"
+	migrator := db.Migrator()
+	if !migrator.HasTable(&BinanceTopUp{}) {
+		return nil
+	}
+	indexes, err := migrator.GetIndexes(&BinanceTopUp{})
+	if err != nil {
+		return fmt.Errorf("inspect binance amount index: %w", err)
+	}
+	for _, index := range indexes {
+		if index.Name() != indexName {
+			continue
+		}
+		if unique, ok := index.Unique(); ok && !unique {
+			return nil
+		}
+		return db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Migrator().DropIndex(&BinanceTopUp{}, indexName); err != nil {
+				return fmt.Errorf("drop unique binance amount index: %w", err)
+			}
+			if err := tx.Migrator().CreateIndex(&BinanceTopUp{}, indexName); err != nil {
+				return fmt.Errorf("create binance amount index: %w", err)
+			}
+			return nil
+		})
 	}
 	return nil
 }
@@ -486,20 +573,9 @@ func createBinanceTopUpAttempt(input BinanceTopUpInput) (*BinanceTopUp, error) {
 			return ErrTopUpQuotaLimitExceeded
 		}
 		tradeNo := "BN" + common.GetRandomString(28)
-		allocatedUnits := input.AmountUnits
-		for attempts := 0; attempts < 10000; attempts++ {
-			var collision BinanceTopUp
-			err := lockForUpdate(tx).Where("account_scope = ? AND network = ? AND amount_units = ?", input.AccountScope, input.Network, allocatedUnits).First(&collision).Error
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				break
-			}
-			if err != nil {
-				return err
-			}
-			allocatedUnits++
-			if attempts == 9999 {
-				return errors.New("unable to allocate unique binance amount")
-			}
+		allocatedUnits, err := allocateBinanceAmount(tx, input.AccountScope, input.Network, input.AmountUnits, time.Now())
+		if err != nil {
+			return err
 		}
 		allocatedUSDT := decimal.NewFromInt(allocatedUnits).Div(decimal.NewFromInt(1_000_000)).StringFixed(6)
 		if allocatedUnits != input.AmountUnits {

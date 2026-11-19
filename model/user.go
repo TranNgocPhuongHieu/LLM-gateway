@@ -1118,6 +1118,17 @@ func GetUserSetting(id int, fromDB bool) (settingMap dto.UserSetting, err error)
 }
 
 func IncreaseUserQuota(id int, quota int, db bool) (err error) {
+	return increaseUserQuotaWithCache(id, quota, db, common.RedisEnabled)
+}
+
+// IncreaseUserQuotaWithCache is used by asynchronous billing work to carry
+// the cache decision captured at request setup, avoiding a concurrent read of
+// the mutable global Redis flag during refund settlement.
+func IncreaseUserQuotaWithCache(id int, quota int, db bool, cacheEnabled bool) (err error) {
+	return increaseUserQuotaWithCache(id, quota, db, cacheEnabled)
+}
+
+func increaseUserQuotaWithCache(id int, quota int, db bool, cacheEnabled bool) (err error) {
 	if quota < 0 {
 		return errors.New("quota 不能为负数！")
 	}
@@ -1126,21 +1137,25 @@ func IncreaseUserQuota(id int, quota int, db bool) (err error) {
 	}
 	if !db && common.BatchUpdateEnabled {
 		addNewRecord(BatchUpdateTypeUserQuota, id, quota)
-		gopool.Go(func() {
-			if err := cacheIncrUserQuota(id, int64(quota)); err != nil {
-				common.SysLog("failed to increase user quota: " + err.Error())
-			}
-		})
+		if cacheEnabled {
+			common.GoFinancial(func() {
+				if err := cacheIncrUserQuota(id, int64(quota)); err != nil {
+					common.SysLog("failed to increase user quota: " + err.Error())
+				}
+			})
+		}
 		return nil
 	}
 	if err := increaseUserQuota(id, quota); err != nil {
 		return err
 	}
-	gopool.Go(func() {
-		if err := cacheIncrUserQuota(id, int64(quota)); err != nil {
-			common.SysLog("failed to increase user quota: " + err.Error())
-		}
-	})
+	if cacheEnabled {
+		common.GoFinancial(func() {
+			if err := cacheIncrUserQuota(id, int64(quota)); err != nil {
+				common.SysLog("failed to increase user quota: " + err.Error())
+			}
+		})
+	}
 	return nil
 }
 
@@ -1168,12 +1183,14 @@ func DecreaseUserQuota(id int, quota int, db bool) (err error) {
 	if quota < 0 {
 		return errors.New("quota 不能为负数！")
 	}
-	gopool.Go(func() {
-		err := cacheDecrUserQuota(id, int64(quota))
-		if err != nil {
-			common.SysLog("failed to decrease user quota: " + err.Error())
-		}
-	})
+	if common.RedisEnabled {
+		common.GoFinancial(func() {
+			err := cacheDecrUserQuota(id, int64(quota))
+			if err != nil {
+				common.SysLog("failed to decrease user quota: " + err.Error())
+			}
+		})
+	}
 	if !db && common.BatchUpdateEnabled {
 		addNewRecord(BatchUpdateTypeUserQuota, id, -quota)
 		return nil

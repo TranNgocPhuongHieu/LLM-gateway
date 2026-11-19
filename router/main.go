@@ -14,8 +14,10 @@ import (
 )
 
 func SetRouter(router *gin.Engine, assets WebAssets) {
+	router.Use(controller.DrainMiddleware())
 	router.GET("/healthz", controller.Health)
 	router.GET("/readyz", controller.Ready)
+	router.POST("/internal/drain", controller.Drain)
 	SetApiRouter(router)
 	SetDashboardRouter(router)
 	SetRelayRouter(router)

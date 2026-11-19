@@ -105,6 +105,9 @@ type LogCleanupResult struct {
 
 var (
 	systemTaskRunnerOnce sync.Once
+	systemTaskStop       = make(chan struct{})
+	systemTaskStopOnce   sync.Once
+	systemTaskWork       sync.WaitGroup
 	// systemTaskWakeup signals the runner to check for runnable tasks
 	// immediately instead of waiting for the idle poll. Buffered so a signal
 	// raised while the runner is busy is not lost and is handled on the next loop.
@@ -127,7 +130,9 @@ func StartSystemTaskRunner() {
 		}
 
 		runnerID := fmt.Sprintf("%s-%s", common.NodeName, common.GetRandomString(8))
+		systemTaskWork.Add(1)
 		gopool.Go(func() {
+			defer systemTaskWork.Done()
 			logger.LogInfo(context.Background(), fmt.Sprintf("system task runner started: runner=%s idle_interval=%s", runnerID, systemTaskRunnerIdleInterval))
 
 			ticker := time.NewTicker(systemTaskRunnerIdleInterval)
@@ -156,6 +161,8 @@ func StartSystemTaskRunner() {
 			runPass()
 			for {
 				select {
+				case <-systemTaskStop:
+					return
 				case <-ticker.C:
 				case <-systemTaskWakeup:
 				}
@@ -163,6 +170,13 @@ func StartSystemTaskRunner() {
 			}
 		})
 	})
+}
+
+// Stop claiming work, then allow already claimed handlers (and their lease
+// heartbeats) to reach a durable terminal state before the DB is closed.
+func StopSystemTaskRunner() {
+	systemTaskStopOnce.Do(func() { close(systemTaskStop) })
+	systemTaskWork.Wait()
 }
 
 func StartLogCleanupTask(targetTimestamp int64) (*model.SystemTask, error) {
@@ -234,6 +248,11 @@ func runSystemTaskClaimPass(runnerID string) {
 		return
 	}
 	for _, handler := range handlers {
+		select {
+		case <-systemTaskStop:
+			return
+		default:
+		}
 		task := pendingTasks[handler.Type()]
 		if task == nil {
 			continue
@@ -248,7 +267,9 @@ func runSystemTaskClaimPass(runnerID string) {
 		}
 		dispatchHandler := handler
 		dispatchTask := claimedTask
+		systemTaskWork.Add(1)
 		gopool.Go(func() {
+			defer systemTaskWork.Done()
 			runWithLeaseHeartbeat(dispatchTask, runnerID, func(ctx context.Context) {
 				dispatchHandler.Run(ctx, dispatchTask, runnerID)
 			})

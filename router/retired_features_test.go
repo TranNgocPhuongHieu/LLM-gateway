@@ -23,7 +23,9 @@ func TestManagementRoutesRetireOptionalFeatures(t *testing.T) {
 				t.Errorf("retired route still registered: %s %s", route.Method, route.Path)
 			}
 		}
-		if strings.HasPrefix(route.Path, "/api/oauth/") && !strings.HasPrefix(route.Path, "/api/oauth/email/") {
+		// Email binding and first-party Google sign-in are the only supported
+		// /api/oauth routes; the retired third-party providers must stay gone.
+		if strings.HasPrefix(route.Path, "/api/oauth/") && !strings.HasPrefix(route.Path, "/api/oauth/email/") && !strings.HasPrefix(route.Path, "/api/oauth/google/") {
 			t.Errorf("external OAuth route still registered: %s", route.Path)
 		}
 	}
@@ -35,6 +37,11 @@ func TestManagementRoutesRetireOptionalFeatures(t *testing.T) {
 	for _, retained := range []string{"GET /api/user/topup/info", "POST /api/user/pay", "POST /api/user/stripe/pay", "POST /api/stripe/webhook", "PUT /api/user/setting"} {
 		if !present[retained] {
 			t.Errorf("retained payment/settings route missing: %s", retained)
+		}
+	}
+	for _, retained := range []string{"POST /api/oauth/google/start", "GET /api/oauth/google/callback", "POST /api/oauth/google/finish", "POST /api/oauth/google/bind/start"} {
+		if !present[retained] {
+			t.Errorf("Google sign-in route missing: %s", retained)
 		}
 	}
 	for _, retained := range []string{"GET /api/pricing", "GET /api/status", "POST /api/user/login", "GET /api/log/", "GET /api/user/topup/self", "POST /api/verify", "POST /v1/responses", "POST /v1/responses/compact", "POST /v1/chat/completions", "POST /v1/messages", "POST /v1beta/models/*path"} {

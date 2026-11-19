@@ -37,6 +37,10 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { login } from "@/features/auth/api";
+import {
+  AuthDivider,
+  GoogleSignInButton,
+} from "@/features/auth/components/google-sign-in-button";
 import { LegalConsent } from "@/features/auth/components/legal-consent";
 import { loginFormSchema } from "@/features/auth/constants";
 import { useAuthRedirect } from "@/features/auth/hooks/use-auth-redirect";
@@ -65,6 +69,7 @@ export function UserAuthForm({
   const loginFailedMessage = t("Login failed");
   const passwordLoginEnabled =
     (status?.password_login_enabled ?? status?.data?.password_login_enabled ?? true) !== false;
+  const googleEnabled = status?.google_oauth_enabled === true;
   const passwordLoginEncryptionEnabled =
     (status?.password_login_encryption_enabled ??
       status?.data?.password_login_encryption_enabled ??
@@ -131,8 +136,12 @@ export function UserAuthForm({
         )}
         {...props}
       >
+        {googleEnabled && <GoogleSignInButton redirectTo={redirectTo} />}
+
         {passwordLoginEnabled && (
           <>
+            {googleEnabled && <AuthDivider label={t("or sign in with username")} />}
+
             {/* Username Field */}
             <FormField
               control={form.control}

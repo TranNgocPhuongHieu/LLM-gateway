@@ -36,6 +36,8 @@ export interface ApiResponse<T = unknown> {
  */
 export interface UserProfile {
   has_password?: boolean
+  /** Whether a Google identity is linked for sign-in */
+  google_linked?: boolean
   permissions?: UserPermissions
   /** User ID */
   id: number
@@ -113,6 +115,10 @@ export interface UpdateUserRequest {
 
 export interface AccountSecurityResult {
   notification_warning?: boolean
+}
+
+export interface GoogleBindingStart extends AccountSecurityResult {
+  url: string
 }
 
 export interface EmailBindingFlow extends AccountSecurityResult {

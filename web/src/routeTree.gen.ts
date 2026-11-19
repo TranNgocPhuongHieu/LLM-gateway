@@ -30,6 +30,7 @@ import { Route as AuthenticatedSystemSettingsRouteRouteImport } from './routes/_
 import { Route as AboutIndexRouteImport } from './routes/about/index'
 import { Route as DocsIndexRouteImport } from './routes/docs/index'
 import { Route as DocsPageRouteImport } from './routes/docs/$page'
+import { Route as OauthGoogleRouteImport } from './routes/oauth/google'
 import { Route as PricingIndexRouteImport } from './routes/pricing/index'
 import { Route as QuotaIndexRouteImport } from './routes/quota/index'
 import { Route as RankingsIndexRouteImport } from './routes/rankings/index'
@@ -177,6 +178,11 @@ const DocsIndexRoute = DocsIndexRouteImport.update({
 const DocsPageRoute = DocsPageRouteImport.update({
   id: '/docs/$page',
   path: '/docs/$page',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OauthGoogleRoute = OauthGoogleRouteImport.update({
+  id: '/oauth/google',
+  path: '/oauth/google',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PricingIndexRoute = PricingIndexRouteImport.update({
@@ -453,6 +459,7 @@ export interface FileRoutesByFullPath {
   '/503': typeof errors503Route
   '/chat2link': typeof AuthenticatedChat2linkRoute
   '/docs/$page': typeof DocsPageRoute
+  '/oauth/google': typeof OauthGoogleRoute
   '/about/': typeof AboutIndexRoute
   '/docs/': typeof DocsIndexRoute
   '/pricing/': typeof PricingIndexRoute
@@ -517,6 +524,7 @@ export interface FileRoutesByTo {
   '/503': typeof errors503Route
   '/chat2link': typeof AuthenticatedChat2linkRoute
   '/docs/$page': typeof DocsPageRoute
+  '/oauth/google': typeof OauthGoogleRoute
   '/about': typeof AboutIndexRoute
   '/docs': typeof DocsIndexRoute
   '/pricing': typeof PricingIndexRoute
@@ -585,6 +593,7 @@ export interface FileRoutesById {
   '/(errors)/503': typeof errors503Route
   '/_authenticated/chat2link': typeof AuthenticatedChat2linkRoute
   '/docs/$page': typeof DocsPageRoute
+  '/oauth/google': typeof OauthGoogleRoute
   '/about/': typeof AboutIndexRoute
   '/docs/': typeof DocsIndexRoute
   '/pricing/': typeof PricingIndexRoute
@@ -652,6 +661,7 @@ export interface FileRouteTypes {
     | '/503'
     | '/chat2link'
     | '/docs/$page'
+    | '/oauth/google'
     | '/about/'
     | '/docs/'
     | '/pricing/'
@@ -716,6 +726,7 @@ export interface FileRouteTypes {
     | '/503'
     | '/chat2link'
     | '/docs/$page'
+    | '/oauth/google'
     | '/about'
     | '/docs'
     | '/pricing'
@@ -783,6 +794,7 @@ export interface FileRouteTypes {
     | '/(errors)/503'
     | '/_authenticated/chat2link'
     | '/docs/$page'
+    | '/oauth/google'
     | '/about/'
     | '/docs/'
     | '/pricing/'
@@ -843,6 +855,7 @@ export interface RootRouteChildren {
   errors500Route: typeof errors500Route
   errors503Route: typeof errors503Route
   DocsPageRoute: typeof DocsPageRoute
+  OauthGoogleRoute: typeof OauthGoogleRoute
   AboutIndexRoute: typeof AboutIndexRoute
   DocsIndexRoute: typeof DocsIndexRoute
   PricingIndexRoute: typeof PricingIndexRoute
@@ -999,6 +1012,13 @@ declare module '@tanstack/react-router' {
       path: '/docs/$page'
       fullPath: '/docs/$page'
       preLoaderRoute: typeof DocsPageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/oauth/google': {
+      id: '/oauth/google'
+      path: '/oauth/google'
+      fullPath: '/oauth/google'
+      preLoaderRoute: typeof OauthGoogleRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pricing/': {
@@ -1469,6 +1489,7 @@ const rootRouteChildren: RootRouteChildren = {
   errors500Route: errors500Route,
   errors503Route: errors503Route,
   DocsPageRoute: DocsPageRoute,
+  OauthGoogleRoute: OauthGoogleRoute,
   AboutIndexRoute: AboutIndexRoute,
   DocsIndexRoute: DocsIndexRoute,
   PricingIndexRoute: PricingIndexRoute,

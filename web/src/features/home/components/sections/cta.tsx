@@ -22,6 +22,9 @@ import { useTranslation } from 'react-i18next'
 
 import { AnimateInView } from '@/components/animate-in-view'
 import { Button } from '@/components/ui/button'
+import { GoogleIcon } from '@/features/auth/components/google-sign-in-button'
+import { useStatus } from '@/hooks/use-status'
+import { formatQuotaWithCredit } from '@/lib/currency'
 import { openAuthDialog } from '@/stores/auth-dialog-store'
 
 interface CTAProps {
@@ -31,6 +34,10 @@ interface CTAProps {
 
 export function CTA(props: CTAProps) {
   const { t } = useTranslation()
+  const { status } = useStatus()
+  const googleSignUp =
+    status?.google_oauth_enabled === true && status?.register_enabled !== false
+  const newUserGrant = Number(status?.quota_for_new_user ?? 0)
 
   if (props.isAuthenticated) {
     return null
@@ -62,16 +69,21 @@ export function CTA(props: CTAProps) {
           </span>
         </h2>
         <p className='text-muted-foreground/80 mx-auto mt-5 max-w-md text-sm leading-relaxed md:text-base'>
-          {t(
-            'Deploy your own gateway and start routing requests through your configured upstream services.'
-          )}
+          {googleSignUp && newUserGrant > 0
+            ? t('Sign up with Google and get {{credit}} free credit to try the API.', {
+                credit: formatQuotaWithCredit(newUserGrant),
+              })
+            : t(
+                'Deploy your own gateway and start routing requests through your configured upstream services.'
+              )}
         </p>
         <div className='mt-8 flex items-center justify-center gap-3'>
           <Button
             className='group rounded-lg'
             onClick={() => openAuthDialog('sign-up')}
           >
-            {t('Get Started')}
+            {googleSignUp && <GoogleIcon className='mr-1 size-4' />}
+            {googleSignUp ? t('Start free with Google') : t('Get Started')}
             <ArrowRight className='ml-1 size-3.5 transition-transform duration-200 group-hover:translate-x-0.5' />
           </Button>
           <Button

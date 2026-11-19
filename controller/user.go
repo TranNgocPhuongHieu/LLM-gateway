@@ -289,33 +289,10 @@ func Register(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgUserRegisterFailed)
 		return
 	}
-	// 生成默认令牌
-	if constant.GenerateDefaultToken {
-		key, err := common.GenerateKey()
-		if err != nil {
-			common.ApiErrorI18n(c, i18n.MsgUserDefaultTokenFailed)
-			common.SysLog("failed to generate token key: " + err.Error())
-			return
-		}
-		// 生成默认令牌
-		token := model.Token{
-			UserId:             insertedUser.Id, // 使用插入后的用户ID
-			Name:               cleanUser.Username + "的初始令牌",
-			Key:                key,
-			CreatedTime:        common.GetTimestamp(),
-			AccessedTime:       common.GetTimestamp(),
-			ExpiredTime:        -1,     // 永不过期
-			RemainQuota:        500000, // 示例额度
-			UnlimitedQuota:     true,
-			ModelLimitsEnabled: false,
-		}
-		if setting.DefaultUseAutoGroup {
-			token.Group = "auto"
-		}
-		if err := token.Insert(); err != nil {
-			common.ApiErrorI18n(c, i18n.MsgCreateDefaultTokenErr)
-			return
-		}
+	if err := createDefaultUserToken(insertedUser.Id, cleanUser.Username); err != nil {
+		common.SysLog("failed to create default token: " + err.Error())
+		common.ApiErrorI18n(c, i18n.MsgCreateDefaultTokenErr)
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -323,6 +300,33 @@ func Register(c *gin.Context) {
 		"message": "",
 	})
 	return
+}
+
+// createDefaultUserToken creates the starter API key when GENERATE_DEFAULT_TOKEN
+// is enabled. It is a no-op otherwise.
+func createDefaultUserToken(userID int, username string) error {
+	if !constant.GenerateDefaultToken {
+		return nil
+	}
+	key, err := common.GenerateKey()
+	if err != nil {
+		return fmt.Errorf("generate token key: %w", err)
+	}
+	token := model.Token{
+		UserId:             userID,
+		Name:               username + "的初始令牌",
+		Key:                key,
+		CreatedTime:        common.GetTimestamp(),
+		AccessedTime:       common.GetTimestamp(),
+		ExpiredTime:        -1,     // never expires
+		RemainQuota:        500000, // sample quota
+		UnlimitedQuota:     true,
+		ModelLimitsEnabled: false,
+	}
+	if setting.DefaultUseAutoGroup {
+		token.Group = "auto"
+	}
+	return token.Insert()
 }
 
 func GetAllUsers(c *gin.Context) {
@@ -429,7 +433,12 @@ func GetSelf(c *gin.Context) {
 func buildSelfUserData(user *model.User) map[string]any {
 	permissions := map[string]any{}
 	permissions["admin_permissions"] = authz.Capabilities(user.Id, user.Role)
+	googleLinked, err := model.HasExternalIdentity(user.Id, model.ExternalIdentityProviderGoogle)
+	if err != nil {
+		common.SysError(fmt.Sprintf("read Google link for user %d: %v", user.Id, err))
+	}
 	return map[string]any{
+		"google_linked":   googleLinked,
 		"id":              user.Id,
 		"username":        user.Username,
 		"display_name":    user.DisplayName,

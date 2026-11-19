@@ -4,11 +4,16 @@ import { useTranslation } from "react-i18next";
 
 import { Dialog } from "@/components/dialog";
 import { Button } from "@/components/ui/button";
+import {
+  AuthDivider,
+  GoogleSignInButton,
+} from "@/features/auth/components/google-sign-in-button";
 import { TermsFooter } from "@/features/auth/components/terms-footer";
 import { OtpForm } from "@/features/auth/otp/components/otp-form";
 import { UserAuthForm } from "@/features/auth/sign-in/components/user-auth-form";
 import { SignUpForm } from "@/features/auth/sign-up/components/sign-up-form";
 import { useStatus } from "@/hooks/use-status";
+import { formatQuotaWithCredit } from "@/lib/currency";
 import { useAuthStore } from "@/stores/auth-store";
 
 import {
@@ -38,7 +43,13 @@ export function AuthDialog() {
   const setMode = useAuthDialogState((state) => state.setMode);
   const close = useAuthDialogState((state) => state.close);
   const user = useAuthStore((state) => state.auth.user);
-  const canRegister = !status?.self_use_mode_enabled && status?.register_enabled !== false;
+  const googleEnabled = status?.google_oauth_enabled === true;
+  const passwordRegisterEnabled = status?.password_register_enabled !== false;
+  const newUserGrant = Number(status?.quota_for_new_user ?? 0);
+  const canRegister =
+    !status?.self_use_mode_enabled &&
+    status?.register_enabled !== false &&
+    (googleEnabled || passwordRegisterEnabled);
   const isSignUp = mode === "sign-up" && canRegister;
 
   useEffect(() => {
@@ -62,7 +73,26 @@ export function AuthDialog() {
     >
       <div className="space-y-5">
         {isSignUp ? (
-          <SignUpForm />
+          <div className="space-y-5">
+            {googleEnabled && (
+              <div className="space-y-3">
+                <GoogleSignInButton redirectTo="/dashboard" label={t("Sign up with Google")} />
+                <p className="text-muted-foreground text-center text-sm">
+                  {newUserGrant > 0
+                    ? t("New accounts get {{credit}} free credit to try the API.", {
+                        credit: formatQuotaWithCredit(newUserGrant),
+                      })
+                    : t("New accounts are created with a verified Google email.")}
+                </p>
+              </div>
+            )}
+            {passwordRegisterEnabled && (
+              <>
+                {googleEnabled && <AuthDivider label={t("or")} />}
+                <SignUpForm />
+              </>
+            )}
+          </div>
         ) : (
           <UserAuthForm redirectTo="/dashboard" stayInPlace onNavigate={close} />
         )}

@@ -1,0 +1,43 @@
+services:
+  llm-gateway:
+    image: ${LLM_GATEWAY_IMAGE}
+    container_name: ${TEST_GATEWAY}
+    environment:
+      LLM_GATEWAY_ROLLOUT_FIXTURE: isolated-mock-only
+      PGHOST: postgres
+      REDIS_CONN_STRING: redis://redis:6379
+      DRAIN_TOKEN: local-drain-test
+      SHUTDOWN_TIMEOUT_SECONDS: '10'
+    ports:
+      - '127.0.0.1:${TEST_PORT}:3000'
+    networks: [default, frontend]
+    stop_grace_period: 15s
+    healthcheck:
+      test: [CMD, curl, -sf, http://127.0.0.1:3000/readyz]
+      interval: 1s
+      timeout: 1s
+      retries: 20
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+  postgres:
+    image: postgres:15
+    container_name: ${TEST_POSTGRES}
+    environment:
+      POSTGRES_USER: fixture
+      POSTGRES_PASSWORD: fixture
+      POSTGRES_DB: fixture
+    healthcheck:
+      test: [CMD, pg_isready, -U, fixture]
+      interval: 1s
+      timeout: 1s
+      retries: 30
+  redis:
+    image: redis:7-alpine
+    container_name: ${TEST_REDIS}
+networks:
+  default:
+    internal: true
+  frontend: {}

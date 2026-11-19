@@ -22,6 +22,9 @@ const (
 
 var batchUpdateStores []map[int]int
 var batchUpdateLocks []sync.Mutex
+var batchUpdaterStop = make(chan struct{})
+var batchUpdaterDone = make(chan struct{})
+var batchUpdaterStopOnce sync.Once
 
 func init() {
 	for range BatchUpdateTypeCount {
@@ -32,11 +35,28 @@ func init() {
 
 func InitBatchUpdater() {
 	gopool.Go(func() {
+		defer close(batchUpdaterDone)
+		ticker := time.NewTicker(time.Duration(common.BatchUpdateInterval) * time.Second)
+		defer ticker.Stop()
 		for {
-			time.Sleep(time.Duration(common.BatchUpdateInterval) * time.Second)
-			batchUpdate()
+			select {
+			case <-batchUpdaterStop:
+				return
+			case <-ticker.C:
+				batchUpdate()
+			}
 		}
 	})
+}
+
+// Call after all quota writers/refunds have joined, before closing the DB.
+func StopBatchUpdater() {
+	if !common.BatchUpdateEnabled {
+		return
+	}
+	batchUpdaterStopOnce.Do(func() { close(batchUpdaterStop) })
+	<-batchUpdaterDone
+	batchUpdate()
 }
 
 func addNewRecord(type_ int, id int, value int) {

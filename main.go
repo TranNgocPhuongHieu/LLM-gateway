@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -94,10 +95,12 @@ func main() {
 	go model.SyncOptions(common.SyncFrequency)
 	sepayContext, stopSepay := context.WithCancel(context.Background())
 	defer stopSepay()
-	go controller.StartSepayReconciler(sepayContext)
+	var paymentWorkers sync.WaitGroup
+	paymentWorkers.Add(2)
+	go func() { defer paymentWorkers.Done(); controller.StartSepayReconciler(sepayContext) }()
 	binanceContext, stopBinance := context.WithCancel(context.Background())
 	defer stopBinance()
-	go service.StartBinancePollingWorker(binanceContext)
+	go func() { defer paymentWorkers.Done(); service.StartBinancePollingWorker(binanceContext) }()
 
 	// 周期性重载授权策略，保证多节点/多 master 部署下权限变更能传播到每个实例
 	go authz.StartPolicySync(common.SyncFrequency)
@@ -196,19 +199,30 @@ func main() {
 	sig := <-quit
 	controller.ServingReady.Store(false)
 	common.SysLog(fmt.Sprintf("received signal: %v, shutting down...", sig))
+	shutdownGateway(srv, func() { stopSepay(); stopBinance() }, &paymentWorkers)
+	// 内存中的看板数据保存入库，避免重启丢失未落库数据 (issue #5679)
+	if common.DataExportEnabled {
+		model.SaveQuotaDataCache()
+	}
+	common.SysLog("server exited")
+}
 
+func shutdownGateway(srv *http.Server, stopPayments func(), paymentWorkers *sync.WaitGroup) {
 	// SSE streams may run for minutes; give them time to finish before forced exit
 	shutdownTimeout := time.Duration(common.GetEnvOrDefault("SHUTDOWN_TIMEOUT_SECONDS", 120)) * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
 		common.SysError(fmt.Sprintf("server forced to shutdown: %v", err))
+		// Do not report a clean shutdown with handlers still writing billing.
+		_ = srv.Close()
 	}
-	// 内存中的看板数据保存入库，避免重启丢失未落库数据 (issue #5679)
-	if common.DataExportEnabled {
-		model.SaveQuotaDataCache()
-	}
-	common.SysLog("server exited")
+	stopPayments()
+	controller.WaitAdmittedRequests()
+	paymentWorkers.Wait()
+	service.StopSystemTaskRunner()
+	common.FinancialWork.Wait()
+	model.StopBatchUpdater()
 }
 
 func InjectUmamiAnalytics() {

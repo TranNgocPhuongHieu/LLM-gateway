@@ -33,7 +33,7 @@ func Health(c *gin.Context) {
 }
 
 func Ready(c *gin.Context) {
-	ready := ServingReady.Load()
+	ready := ServingReady.Load() && !isDraining()
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
 	defer cancel()
 	if ready {
@@ -56,7 +56,7 @@ func Ready(c *gin.Context) {
 	if ready && common.RedisEnabled {
 		ready = common.RDB != nil && common.RDB.Ping(ctx).Err() == nil
 	}
-	if !ready || !ServingReady.Load() {
+	if !ready || !ServingReady.Load() || isDraining() {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unavailable"})
 		return
 	}

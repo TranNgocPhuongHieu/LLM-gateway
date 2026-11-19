@@ -111,7 +111,9 @@ func CreateBinanceOrder(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	common.ApiSuccess(c, gin.H{"trade_no": order.TradeNo, "network": order.Network, "coin": order.Coin, "address": order.DepositAddress, "amount_usdt": order.AmountUSDT, "amount_vnd": order.AmountVND, "credits": order.Credits, "status": order.Status, "expires_at": order.ExpiresAt, "qr_payload": order.DepositAddress + "?coin=USDT&network=" + order.Network + "&amount=" + order.AmountUSDT})
+	// Wallet and exchange scanners only accept a bare deposit address; the
+	// exact amount is shown and copied separately in the checkout UI.
+	common.ApiSuccess(c, gin.H{"trade_no": order.TradeNo, "network": order.Network, "coin": order.Coin, "address": order.DepositAddress, "amount_usdt": order.AmountUSDT, "amount_vnd": order.AmountVND, "credits": order.Credits, "status": order.Status, "expires_at": order.ExpiresAt, "qr_payload": order.DepositAddress})
 }
 
 func GetBinanceOrder(c *gin.Context) {

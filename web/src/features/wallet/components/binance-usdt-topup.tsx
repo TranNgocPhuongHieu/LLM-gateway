@@ -43,6 +43,7 @@ export function BinanceUsdtTopup({ onPaid }: { onPaid: () => void }) {
   const [network, setNetwork] = useState<Network>("BEP20");
   const [amount, setAmount] = useState("10");
   const [quote, setQuote] = useState<Quote | null>(null);
+  const [quoteError, setQuoteError] = useState("");
   const [order, setOrder] = useState<Order | null>(null);
   const [config, setConfig] = useState<{
     min: string;
@@ -92,11 +93,22 @@ export function BinanceUsdtTopup({ onPaid }: { onPaid: () => void }) {
     const timer = window.setTimeout(() => {
       void api
         .post("/api/user/binance/quote", { amount_usdt: amount })
-        .then(({ data }) => setQuote(data?.data ?? null))
-        .catch(() => setQuote(null));
+        .then(({ data }) => {
+          if (data?.success && data.data) {
+            setQuote(data.data);
+            setQuoteError("");
+            return;
+          }
+          setQuote(null);
+          setQuoteError(data?.message ? t(data.message) : t("Unable to get USDT quote."));
+        })
+        .catch(() => {
+          setQuote(null);
+          setQuoteError(t("Unable to get USDT quote."));
+        });
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [amount, config]);
+  }, [amount, config, t]);
 
   useEffect(() => {
     if (!order || ["paid", "voided", "expired"].includes(order.status)) return;
@@ -248,6 +260,7 @@ export function BinanceUsdtTopup({ onPaid }: { onPaid: () => void }) {
             </div>
           ))}
         </div>
+        {quoteError && <p className="text-sm text-destructive">{quoteError}</p>}
         <Button
           className="w-full"
           onClick={() => void create()}
@@ -287,8 +300,16 @@ export function BinanceUsdtTopup({ onPaid }: { onPaid: () => void }) {
               <div className="space-y-3 text-sm">
                 <div>
                   <span className="text-muted-foreground">{t("Send exactly")}</span>
-                  <div className="text-xl font-bold">
+                  <div className="flex items-center gap-1 text-xl font-bold">
                     {formatUsdt(order.amount_usdt, locale)} USDT
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={t("Copy amount")}
+                      onClick={() => void navigator.clipboard?.writeText(formatUsdt(order.amount_usdt, "en-US"))}
+                    >
+                      <Copy className="size-4" />
+                    </Button>
                   </div>
                 </div>
                 <div>
@@ -306,6 +327,14 @@ export function BinanceUsdtTopup({ onPaid }: { onPaid: () => void }) {
                     <Copy className="size-4" />
                   </Button>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  {t("Scan the QR code to fill in the address, then enter the exact amount above.")}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {t(
+                    "If your wallet or exchange deducts a withdrawal fee, add it so the amount received is exactly this amount.",
+                  )}
+                </p>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2 border-t pt-4 text-center text-xs">

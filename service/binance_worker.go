@@ -183,7 +183,7 @@ func (p *BinancePoller) ingestAndMatch(ctx context.Context, cfg model.BinanceCon
 	if matchStatus == model.BinanceDepositReview {
 		return nil
 	}
-	if row.TravelRuleStatus != "" && strings.ToUpper(row.TravelRuleStatus) != "COMPLETE" {
+	if !binanceTravelRuleCleared(row.TravelRuleStatus) {
 		_ = model.DB.Model(&model.BinanceDeposit{}).Where("account_scope = ? AND provider_deposit_id = ?", p.AccountScope, row.ProviderDepositID).Updates(map[string]any{"match_status": model.BinanceDepositReview, "review_reason": "travel rule status is not complete"})
 		return nil
 	}

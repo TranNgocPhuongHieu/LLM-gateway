@@ -6670,6 +6670,14 @@
     "Send exactly": "Gửi chính xác",
     "Network": "Mạng",
     "Copy address": "Sao chép địa chỉ",
+    "Copy amount": "Sao chép số tiền",
+    "Scan the QR code to fill in the address, then enter the exact amount above.": "Quét mã QR để điền địa chỉ, sau đó nhập đúng số tiền ở trên.",
+    "If your wallet or exchange deducts a withdrawal fee, add it so the amount received is exactly this amount.": "Nếu ví hoặc sàn trừ phí rút vào số tiền, hãy cộng thêm phí để số tiền nhận được đúng bằng số trên.",
+    "Unable to get USDT quote.": "Không lấy được báo giá USDT.",
+    "USDT amount below minimum": "Số USDT thấp hơn mức tối thiểu.",
+    "USDT amount above maximum": "Số USDT vượt quá mức tối đa.",
+    "invalid USDT amount": "Số USDT không hợp lệ.",
+    "Binance top-up is unavailable": "Nạp USDT đang tạm ngừng.",
     "Waiting for transaction": "Chờ giao dịch",
     "Network confirmation": "Xác nhận mạng",
     "Credit settlement": "Cộng credit",
@@ -6733,6 +6741,8 @@
     "Top up for promotion": "Nạp tiền ngay",
     "{{count}} available promotions": "{{count}} khuyến mãi",
     "Promotions apply automatically; no code needed.": "Áp dụng tự động, không cần nhập mã.",
+    "Confirm bank receipt": "Xác nhận đã nhận tiền",
+    "Confirm receipt for {{user}}, order {{order}}: {{money}} VND → {{credits}} credits. Previously added credits will NOT be deducted. Continue?": "Xác nhận đã nhận tiền của {{user}}, đơn {{order}}: {{money}} VND → cộng {{credits}} credits. Khoản đã cộng tay trước đó KHÔNG được trừ. Tiếp tục?",
     "+ Add key": "+ Thêm key",
     "Active keys": "Khóa hoạt động",
     "Add a custom API key to track quota directly without configuring a channel.": "Thêm API key tùy chỉnh để theo dõi quota trực tiếp mà không cần cấu hình Kênh.",
@@ -6916,8 +6926,6 @@
     "Token (input / output)": "Token (input / output)",
     "Balance {{balance}} · about {{days}} days left at your recent spending": "Số dư {{balance}} · còn khoảng {{days}} ngày theo mức chi gần đây",
     "Balance {{balance}} · less than 1 day left at your recent spending": "Số dư {{balance}} · còn chưa tới 1 ngày theo mức chi gần đây",
-    "Token count": "Số token",
-    "Confirm bank receipt": "Xác nhận đã nhận tiền",
-    "Confirm receipt for {{user}}, order {{order}}: {{money}} VND → {{credits}} credits. Previously added credits will NOT be deducted. Continue?": "Xác nhận đã nhận tiền của {{user}}, đơn {{order}}: {{money}} VND → cộng {{credits}} credits. Khoản đã cộng tay trước đó KHÔNG được trừ. Tiếp tục?"
+    "Token count": "Số token"
   }
 }

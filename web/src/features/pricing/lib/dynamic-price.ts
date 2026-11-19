@@ -339,6 +339,7 @@ export function getDynamicPriceEntries(
   }
 
   return BILLING_PRICING_VARS.flatMap((variable) => {
+    if (variable.key === 'cc' || variable.key === 'cc1h') return []
     if (!variable.field) return []
     const value = Number((tier as ParsedTier)[variable.field])
     if (!Number.isFinite(value) || value < 0) return []

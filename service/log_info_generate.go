@@ -286,8 +286,11 @@ func GenerateClaudeOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo,
 	modelPrice float64, userGroupRatio float64) *model.LogOther {
 	info := GenerateTextOtherInfo(ctx, relayInfo, modelRatio, groupRatio, completionRatio, cacheTokens, cacheRatio, modelPrice, userGroupRatio)
 	info.SetPublic("claude", true)
-	info.SetPublic("cache_creation_tokens", cacheCreationTokens)
-	info.SetPublic("cache_creation_ratio", cacheCreationRatio)
+	// Cache creation is settled as input; omit an unused write price from logs.
+	if cacheCreationTokens != 0 {
+		info.SetPublic("cache_creation_tokens", cacheCreationTokens)
+		info.SetPublic("cache_creation_ratio", cacheCreationRatio)
+	}
 	if cacheCreationTokens5m != 0 {
 		info.SetPublic("cache_creation_tokens_5m", cacheCreationTokens5m)
 		info.SetPublic("cache_creation_ratio_5m", cacheCreationRatio5m)

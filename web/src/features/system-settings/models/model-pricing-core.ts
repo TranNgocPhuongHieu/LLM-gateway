@@ -129,12 +129,6 @@ export const laneConfigs: Array<{
     placeholder: '0.3',
   },
   {
-    key: 'createCache',
-    titleKey: 'Cache write price',
-    descriptionKey: 'Token price for creating cache entries.',
-    placeholder: '3.75',
-  },
-  {
     key: 'image',
     titleKey: 'Image input price',
     descriptionKey: 'Token price for image input.',
@@ -227,7 +221,8 @@ export function buildPreviewRows(
   laneEnabled: Record<LaneKey, boolean>,
   t: (key: string) => string,
   currency: PricingCurrency = USD_PRICING_CURRENCY,
-  cacheWriteMode?: CacheWriteMode,
+  // Kept for caller compatibility; cache writes are previewed as input.
+  _cacheWriteMode?: CacheWriteMode,
   billingDetails?: LegacyBillingDetails
 ): PreviewRow[] {
   if (mode === 'tiered_expr') {
@@ -304,17 +299,6 @@ export function buildPreviewRows(
           : t('Empty'),
     },
     {
-      key: 'createCache',
-      label:
-        cacheWriteMode === 'claude_ttl'
-          ? t('Cache Creation (5m)')
-          : t('Cache write price'),
-      value:
-        laneEnabled.createCache && lanePrices.createCache
-          ? formatPricingAmount(lanePrices.createCache, currency)
-          : t('Empty'),
-    },
-    {
       key: 'image',
       label: t('Image input price'),
       value:
@@ -333,31 +317,13 @@ export function buildPreviewRows(
       value: audioOutputValue,
     },
   ]
-  if (
-    cacheWriteMode === 'claude_ttl' &&
-    laneEnabled.createCache &&
-    lanePrices.createCache
-  ) {
-    rows.splice(4, 0, {
-      key: 'createCache1h',
-      label: t('Cache create (1h) price'),
-      value: formatPricingAmount(
-        Number(lanePrices.createCache) * (6 / 3.75),
-        currency
-      ),
-    })
-  }
-  const showCacheWrite = cacheWriteMode
-    ? cacheWriteMode !== 'none'
-    : hasValue(values.createCacheRatio)
   const imageRatio = toNumberOrNull(values.imageRatio) ?? 1
   const cacheRatio = toNumberOrNull(values.cacheRatio) ?? 1
   return [
     ...rows.filter(
       (row) =>
         (row.key !== 'image' || imageRatio !== 1) &&
-        (row.key !== 'cache' || cacheRatio !== 1) &&
-        (row.key !== 'createCache' || showCacheWrite)
+        (row.key !== 'cache' || cacheRatio !== 1)
     ),
     ...pricingAdjustmentRows(billingDetails, t),
   ]

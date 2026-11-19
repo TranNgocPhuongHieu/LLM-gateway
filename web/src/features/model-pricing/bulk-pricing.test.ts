@@ -4,9 +4,22 @@ import { calculateBulkPrices, modelFamily, applyLongContextPricing, defaultLongC
 import { updateExpressionDraft } from './components/price-management-view'
 import { parseTiersFromExpr } from '@/features/pricing/lib/billing-expr'
 import { evaluateBillingExpression } from '@/features/pricing/lib/billing-expression/runtime'
+import { buildEstimatorTokens } from '@/features/pricing/lib/tier-expr'
 
 describe('bulk pricing preview', () => {
   const current = { inputVnd: 700, outputVnd: 3500, cacheReadVnd: 350 }
+
+  it('merges both cache-write TTLs into estimated input without charging twice', () => {
+    const tokens = buildEstimatorTokens(4, 100, {
+      cacheReadTokens: 20, cacheCreateTokens: 300, cacheCreate1hTokens: 200,
+      imageTokens: 0, imageCacheTokens: 0, imageOutputTokens: 0,
+      audioInputTokens: 0, audioOutputTokens: 0,
+    })
+    expect(tokens).toMatchObject({ p: 504, c: 100, len: 524, cr: 20, cc: 0, cc1h: 0 })
+    const result = evaluateBillingExpression('p * 1 + cc * 99 + cc1h * 999', { tokens })
+    expect(result.status).toBe('success')
+    if (result.status === 'success') expect(result.cost).toBe(504)
+  })
 
   it('applies ratios against the new input ($ -> VND) and leaves blanks unchanged', () => {
     // inputVnd entered as 1 $ (= 1000 VND), outputVnd entered as ratio 5x
@@ -42,15 +55,16 @@ describe('bulk pricing preview', () => {
     expect(modelFamily('unclassified')).toBe('other')
   })
 
-  it('persists zero cache-write and adds missing cache coefficients', () => {
+  it('does not configure cache-write or generate new write coefficients', () => {
     const draft = { model: 'example', hasPricing: true, ...current, cacheWriteVnd: 0 }
     const expression = updateExpressionDraft('tier("base", p * 1 + c * 2 + cc * 3)', draft)
-    expect(expression).toContain('cc * 0.0000000000000000')
+    expect(expression).toContain('cc * 3') // Existing expressions remain compatible; settlement supplies zero.
     expect(expression).toContain(`cr * ${(350 / 26000).toFixed(16)}`)
     expect(updateExpressionDraft('tier("base", p * 1)', { ...draft, cacheWriteVnd: 100 }))
-      .toContain(`cc * ${(100 / 26000).toFixed(16)}`)
+      .not.toMatch(/\bcc\b/)
     expect(updateExpressionDraft('', { ...draft, model: 'claude-opus-5' }))
-      .toContain('cc * 0.0000000000000000')
+      .not.toMatch(/\bcc\b/)
+    expect(calculateBulkPrices(current, 'value', { cacheWriteVnd: '100' })).toEqual(current)
   })
 
   it('round-trips adjustable context rules and exposes both prices publicly', () => {

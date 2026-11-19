@@ -38,6 +38,14 @@ func setupTestDB(t *testing.T) {
 	})
 }
 
+func TestCacheWritePricingIsIncludedInInput(t *testing.T) {
+	for _, name := range []string{"claude-fable-5-2", "claude-opus-5-5", "gpt-6.1-sol"} {
+		if got := ResolveCacheWriteMode(name, PricingValues{"CreateCacheRatio": float64(99)}); got != CacheWriteNone {
+			t.Fatalf("%s: cache creation must not expose a separate price, got %s", name, got)
+		}
+	}
+}
+
 func TestUpdateOneModelDoesNotTouchOthers(t *testing.T) {
 	setupTestDB(t)
 

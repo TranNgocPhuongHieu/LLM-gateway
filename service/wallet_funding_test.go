@@ -8,9 +8,84 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
+	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 )
+
+func TestConcurrentWalletBillingExactlyOnce(t *testing.T) {
+	originalDB := model.DB
+	originalRedis, originalBatch := common.RedisEnabled, common.BatchUpdateEnabled
+	t.Cleanup(func() {
+		model.DB, common.RedisEnabled, common.BatchUpdateEnabled = originalDB, originalRedis, originalBatch
+	})
+	common.RedisEnabled, common.BatchUpdateEnabled = false, false
+	db, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:wallet-concurrent-%p?mode=memory&cache=shared", t)), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sqlDB.SetMaxOpenConns(1)
+	t.Cleanup(func() { _ = sqlDB.Close() })
+	model.DB = db
+	if err := db.AutoMigrate(&model.User{}); err != nil {
+		t.Fatal(err)
+	}
+	const requests = 50
+	for i := 0; i < requests; i++ {
+		if err := db.Create(&model.User{Id: 920000 + i, Username: fmt.Sprintf("wallet-concurrent-%d", i), AffCode: fmt.Sprintf("wallet-concurrent-%d", i), Quota: 1000}).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	var wg sync.WaitGroup
+	for i := 0; i < requests; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			info := &relaycommon.RelayInfo{UserId: 920000 + id, IsPlayground: true}
+			info.UserSetting.BillingPreference = "wallet_only"
+			session, apiErr := NewBillingSession(ctx, info, 100)
+			if apiErr != nil {
+				t.Errorf("request %d pre-consume: %v", id, apiErr)
+				return
+			}
+			if err := session.Settle(140); err != nil {
+				t.Errorf("request %d settle: %v", id, err)
+			}
+			if err := session.Settle(140); err != nil {
+				t.Errorf("request %d duplicate settle: %v", id, err)
+			}
+			failed, apiErr := NewBillingSession(ctx, info, 100)
+			if apiErr != nil {
+				t.Errorf("request %d failed pre-consume: %v", id, apiErr)
+				return
+			}
+			failed.Refund(ctx)
+			failed.Refund(ctx)
+		}(i)
+	}
+	wg.Wait()
+	deadline := time.Now().Add(10 * time.Second)
+	var wrong int64
+	for {
+		if err := db.Model(&model.User{}).Where("quota <> ?", 860).Count(&wrong).Error; err != nil {
+			t.Fatal(err)
+		}
+		if wrong == 0 || time.Now().After(deadline) {
+			break
+		}
+		wrong = 0
+		time.Sleep(10 * time.Millisecond)
+	}
+	if wrong != 0 {
+		t.Fatalf("%d users had non-idempotent billing result", wrong)
+	}
+}
 
 func TestRetiredSubscriptionsUseWalletFunding(t *testing.T) {
 	originalDB := model.DB

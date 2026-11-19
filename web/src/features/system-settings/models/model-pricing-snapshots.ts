@@ -146,8 +146,6 @@ export const getPriceDetail = (
       `${t('Output')} $${ratioToPrice(row.completionRatio, inputPrice)}`,
     row.cacheRatio &&
       `${t('Cache')} $${ratioToPrice(row.cacheRatio, inputPrice)}`,
-    row.createCacheRatio &&
-      `${t('Cache write')} $${ratioToPrice(row.createCacheRatio, inputPrice)}`,
   ]
     .filter(Boolean)
     .slice(0, 2)

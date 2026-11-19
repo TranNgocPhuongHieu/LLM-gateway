@@ -15,7 +15,6 @@ import (
 	relaycommon "github.com/TranNgocPhuongHieu/LLM-gateway/relay/common"
 	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/dto"
 	"github.com/TranNgocPhuongHieu/LLM-gateway/setting/ratio_setting"
-	"github.com/TranNgocPhuongHieu/LLM-gateway/types"
 
 	"github.com/bytedance/gopkg/util/gopool"
 
@@ -36,14 +35,6 @@ type QuotaInfo struct {
 	ModelPrice    float64
 	ModelRatio    float64
 	GroupRatio    float64
-}
-
-func hasCustomModelRatio(modelName string, currentRatio float64) bool {
-	defaultRatio, exists := ratio_setting.GetDefaultModelRatioMap()[modelName]
-	if !exists {
-		return true
-	}
-	return currentRatio != defaultRatio
 }
 
 func calculateAudioQuota(info QuotaInfo) (int, *common.QuotaClamp) {
@@ -255,32 +246,6 @@ func PostWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, mod
 		Group:            relayInfo.UsingGroup,
 		Other:            other,
 	})
-}
-
-func CalcOpenRouterCacheCreateTokens(usage dto.Usage, priceData types.PriceData) int {
-	if priceData.CacheCreationRatio == 1 {
-		return 0
-	}
-	quotaPrice := priceData.ModelRatio / common.QuotaPerUnit
-	promptCacheCreatePrice := quotaPrice * priceData.CacheCreationRatio
-	promptCacheReadPrice := quotaPrice * priceData.CacheRatio
-	completionPrice := quotaPrice * priceData.CompletionRatio
-
-	cost, _ := usage.Cost.(float64)
-	totalPromptTokens := float64(usage.PromptTokens)
-	completionTokens := float64(usage.CompletionTokens)
-	promptCacheReadTokens := float64(usage.PromptTokensDetails.CachedTokens)
-
-	value := (cost -
-		totalPromptTokens*quotaPrice +
-		promptCacheReadTokens*(quotaPrice-promptCacheReadPrice) -
-		completionTokens*completionPrice) /
-		(promptCacheCreatePrice - quotaPrice)
-	quota, clamp := common.QuotaRoundChecked(value)
-	if clamp != nil {
-		return -1
-	}
-	return quota
 }
 
 func PostAudioConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.Usage, extraContent string) {

@@ -126,6 +126,7 @@ function buildTierBodyExpr(tier: VisualTier): string {
   parts.push(`p * ${ic}`)
   parts.push(`c * ${oc}`)
   for (const cv of BILLING_CACHE_VAR_MAP) {
+    if (cv.exprVar === 'cc' || cv.exprVar === 'cc1h') continue
     const v = Number((tier as Record<string, unknown>)[cv.field]) || 0
     if (v !== 0) parts.push(`${cv.exprVar} * ${v}`)
   }
@@ -311,7 +312,7 @@ export function buildEstimatorTokens(
   extraTokenValues: ExtraTokenValues
 ): Partial<Record<TokenVariable, number>> {
   return {
-    p: promptTokens,
+    p: promptTokens + extraTokenValues.cacheCreateTokens + extraTokenValues.cacheCreate1hTokens,
     c: completionTokens,
     len:
       promptTokens +
@@ -327,6 +328,8 @@ export function buildEstimatorTokens(
         extraTokenValues[field.stateKey],
       ])
     ),
+    cc: 0,
+    cc1h: 0,
   }
 }
 

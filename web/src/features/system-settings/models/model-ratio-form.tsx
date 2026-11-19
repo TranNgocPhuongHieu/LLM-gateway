@@ -107,12 +107,6 @@ const modelJsonFields: Array<{
     descriptionKey: 'Optional ratio used when upstream cache hits occur.',
   },
   {
-    name: 'CreateCacheRatio',
-    labelKey: 'Create cache ratio',
-    descriptionKey:
-      'Ratio applied when creating cache entries for supported models.',
-  },
-  {
     name: 'CompletionRatio',
     labelKey: 'Completion ratio',
     descriptionKey:

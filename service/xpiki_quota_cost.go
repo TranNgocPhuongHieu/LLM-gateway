@@ -69,6 +69,7 @@ func enrichCachedLocalAttemptCosts(ctx context.Context, report *XPikiLogsReport,
 	}
 	enrichXPikiLogCosts(ctx, &pending, credentials, endpoint, statusEndpoint...)
 	report.QuotaErrors = append(report.QuotaErrors, pending.QuotaErrors...)
+	sweptExpired := false
 	for i, item := range pending.Items {
 		report.Items[indices[i]] = item
 		if ctx.Err() != nil {
@@ -82,10 +83,13 @@ func enrichCachedLocalAttemptCosts(ctx context.Context, report *XPikiLogsReport,
 			ReferenceModel: item.CostReferenceModel, ReferenceTokens: item.ChargedReferenceTokens, TokenCost: item.TokenCost, Match: item.OriginMatch},
 			errors: pending.QuotaErrors, expires: time.Now().Add(ttl)}
 		localRequestCostCache.Lock()
-		for key, value := range localRequestCostCache.entries {
-			if now.After(value.expires) {
-				delete(localRequestCostCache.entries, key)
+		if !sweptExpired {
+			for key, value := range localRequestCostCache.entries {
+				if now.After(value.expires) {
+					delete(localRequestCostCache.entries, key)
+				}
 			}
+			sweptExpired = true
 		}
 		if len(localRequestCostCache.entries) >= 2048 {
 			for key := range localRequestCostCache.entries {

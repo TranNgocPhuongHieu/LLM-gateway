@@ -19,19 +19,19 @@ For commercial licensing, please contact support@quantumnous.com
 
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import { XPikiRequestLogsPage } from '@/features/xpiki-quota'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
 export const Route = createFileRoute('/_authenticated/request-logs/')({
+  // This page duplicated the admin Usage Logs. Keep the super-admin guard
+  // (request logs expose every user's key, model and cost), then forward to
+  // the single logs view.
   beforeLoad: () => {
     const { auth } = useAuthStore.getState()
-
-    // Request logs expose every user's key, model and cost. Only the root
-    // administrator may open the page; the API enforces the same boundary.
     if (!auth.user || auth.user.role < ROLE.SUPER_ADMIN) {
       throw redirect({ to: '/403' })
     }
+    throw redirect({ to: '/dashboard/$section', params: { section: 'logs' }, replace: true })
   },
-  component: XPikiRequestLogsPage,
+  component: () => null,
 })

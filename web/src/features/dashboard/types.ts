@@ -311,3 +311,32 @@ export interface SelfErrorSummaryData {
   truncated: boolean
   categories: SelfErrorCategoryItem[]
 }
+
+// System-wide summary for the super admin Overview (GET /api/data/admin_summary).
+// Quota fields are raw quota units; convert them with the currency helpers.
+export interface AdminTopupMethodStat {
+  method: string
+  currency: string
+  // Native amount in `currency` (e.g. VND, USDT), not quota.
+  amount: number
+  count: number
+}
+
+export interface AdminSummaryData {
+  topup: {
+    credited_quota: number
+    count: number
+    pending_count: number
+    by_method: AdminTopupMethodStat[]
+  }
+  users: {
+    new_users: number
+    new_google_users: number
+    signup_quota_granted: number
+    active_users: number
+  }
+  requests: {
+    total: number
+    errors: number
+  }
+}

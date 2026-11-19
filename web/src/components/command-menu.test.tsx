@@ -27,7 +27,7 @@ vi.mock('@/hooks/use-sidebar-config', () => ({
 }))
 
 const customerOnlyItems = ['Overview', 'Wallet', 'Profile']
-const adminOnlyItems = ['Channels', 'Request Logs', 'Users', 'System Settings']
+const adminOnlyItems = ['Channels', 'Users', 'System Settings']
 
 function setRole(role: number) {
   useAuthStore.getState().auth.setUser({ id: 1, role } as unknown as AuthUser)

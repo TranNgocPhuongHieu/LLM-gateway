@@ -6937,6 +6937,20 @@
     "Free credit for each new account, in credits ({{formattedQuota}})": "Credit miễn phí cho mỗi tài khoản mới, nhập theo credit ({{formattedQuota}})",
     "How much to charge for each US dollar of balance": "Giá thu cho mỗi đô la Mỹ số dư",
     "Smallest USD amount users can recharge": "Số tiền USD tối thiểu người dùng có thể nạp",
-    "Payment methods offered on the recharge form, stored as PayMethods JSON.": "Các phương thức thanh toán hiển thị ở form nạp tiền, lưu dưới dạng JSON PayMethods."
+    "Payment methods offered on the recharge form, stored as PayMethods JSON.": "Các phương thức thanh toán hiển thị ở form nạp tiền, lưu dưới dạng JSON PayMethods.",
+    "Active customers": "Khách hàng hoạt động",
+    "All customers, grouped by cause for the selected period": "Tất cả khách hàng, nhóm theo nguyên nhân trong khoảng thời gian đã chọn",
+    "Could not load system summary.": "Không thể tải tổng quan hệ thống.",
+    "Error rate {{rate}}": "Tỷ lệ lỗi {{rate}}",
+    "New signups": "Đăng ký mới",
+    "Granted {{amount}} at signup": "Đã tặng {{amount}} khi đăng ký",
+    "System daily cost": "Chi phí theo ngày toàn hệ thống",
+    "System errors": "Lỗi toàn hệ thống",
+    "Top-ups": "Lượt nạp tiền",
+    "View model call analytics on the Models tab": "Xem phân tích lượt gọi mô hình ở tab Mô hình",
+    "{{count}} errors": "{{count}} lỗi",
+    "{{count}} pending": "{{count}} đang chờ",
+    "{{count}} via Google": "{{count}} qua Google",
+    "≈ {{amount}} VND": "≈ {{amount}} VND"
   }
 }

@@ -227,6 +227,7 @@ func SetApiRouter(router *gin.Engine) {
 		logRoute.GET("/self", middleware.UserAuth(), controller.GetUserLogs)
 		logRoute.GET("/self/search", middleware.UserAuth(), middleware.SearchRateLimit(), controller.SearchUserLogs)
 		logRoute.GET("/self/error_summary", middleware.UserAuth(), controller.GetUserErrorSummary)
+		logRoute.GET("/error_summary", middleware.RootAuth(), controller.GetAdminErrorSummary)
 
 		systemTaskRoute := apiRouter.Group("/system-task")
 		systemTaskRoute.Use(middleware.RootAuth())
@@ -251,6 +252,7 @@ func SetApiRouter(router *gin.Engine) {
 		dataRoute.GET("/flow", middleware.RootAuth(), controller.GetAllFlowQuotaDates)
 		dataRoute.GET("/flow/self", middleware.UserAuth(), controller.GetUserFlowQuotaDates)
 		dataRoute.GET("/self/breakdown", middleware.UserAuth(), controller.GetUserUsageBreakdown)
+		dataRoute.GET("/admin_summary", middleware.RootAuth(), controller.GetAdminSummary)
 
 		logRoute.Use(middleware.CORS(), middleware.CriticalRateLimit())
 		{

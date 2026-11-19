@@ -83,7 +83,7 @@ export function SummaryCards() {
     last7DaysQuota: spend.last7DaysQuota ?? 0,
     now,
   })
-  // Health and run-out use the 7-day average; until it loads they assume none.
+  // Health uses the 7-day average; until it loads it assumes none.
   const healthLabel = t(HEALTH_LABEL_KEY[kpis.health])
   const balanceCredits = quotaUnitsToDollars(balanceQuota)
   const balanceVnd = Math.round(balanceCredits * VND_PER_CREDIT)
@@ -100,29 +100,8 @@ export function SummaryCards() {
           maximumFractionDigits: 1,
         }).format(kpis.monthChangePct)}%`
 
-  let runOutValue: string
-  let runOutHint: string
-  switch (kpis.runOut.kind) {
-    case 'depleted':
-      runOutValue = t('Balance depleted')
-      runOutHint = t('Top up to keep sending requests')
-      break
-    case 'no-usage':
-      runOutValue = t('No recent usage')
-      runOutHint = t('Based on the last {{days}} days', { days: 7 })
-      break
-    case 'date':
-      runOutValue = new Intl.DateTimeFormat(locale, {
-        dateStyle: 'medium',
-      }).format(kpis.runOut.date)
-      runOutHint = t('About {{days}} days at the last 7-day average', {
-        days: formatNumber(Math.floor(kpis.runOut.days), locale),
-      })
-      break
-  }
-
   return (
-    <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-4'>
+    <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-3'>
       <KpiCard
         label={t('Credit remaining')}
         className='sm:col-span-2 xl:col-span-1'
@@ -180,16 +159,6 @@ export function SummaryCards() {
         </div>
       </KpiCard>
 
-      <KpiCard
-        label={t('Projected run-out')}
-        footer={
-          <div className='text-muted-foreground text-xs'>{runOutHint}</div>
-        }
-      >
-        <div className='text-xl font-bold tracking-tight tabular-nums sm:text-2xl'>
-          {spend.last7DaysQuota === undefined ? '—' : runOutValue}
-        </div>
-      </KpiCard>
     </div>
   )
 }

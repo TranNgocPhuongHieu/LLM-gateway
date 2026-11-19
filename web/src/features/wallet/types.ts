@@ -144,7 +144,7 @@ export type TopupStatus = 'success' | 'pending' | 'expired'
 export interface TopupRecord {
   username?: string
   payment_provider?: string
-  sepay?: { credits: number; amount_vnd: number; verification_status: string; verification_reason?: string; order_id?: string; transaction_id?: string; created_at?: string; expires_at?: string }
+  sepay?: { flow?: string; credits: number; amount_vnd: number; verification_status: string; verification_reason?: string; order_id?: string; transaction_id?: string; created_at?: string; expires_at?: string }
   binance?: { amount_usdt: string; requested_amount_usdt?: string; payable_amount_usdt?: string; network: string; status: string; verification_reason?: string; matched_deposit_id?: number; deposit?: { tx_id?: string; amount_usdt?: string; match_status?: string; review_reason?: string; confirm_times?: string } }
   /** Record ID */
   id: number

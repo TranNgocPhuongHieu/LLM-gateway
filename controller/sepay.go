@@ -417,6 +417,29 @@ func absInt64(value int64) int64 {
 	return value
 }
 
+func SepayAdminConfirm(c *gin.Context) {
+	if c.GetInt("role") < common.RoleRootUser {
+		c.AbortWithStatus(http.StatusForbidden)
+		return
+	}
+	var request struct {
+		EventID  string `json:"event_id"`
+		Reason   string `json:"reason"`
+		Received bool   `json:"received"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil || !request.Received {
+		common.ApiErrorMsg(c, "receipt confirmation is required")
+		return
+	}
+	already, err := model.ConfirmSepayBankPayment(c.Param("trade_no"), request.EventID, request.Reason, c.ClientIP())
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	model.RecordOperationAuditLog(c.GetInt("id"), c.GetInt("role"), "Manually confirmed SePay bank receipt", c.ClientIP(), "sepay.bank.confirm", map[string]any{"trade_no": c.Param("trade_no"), "event_id": request.EventID, "reason": request.Reason, "already_completed": already}, nil, nil, c)
+	common.ApiSuccess(c, gin.H{"already_completed": already})
+}
+
 func SepayReconcile(c *gin.Context) {
 	if c.GetInt("role") < common.RoleRootUser {
 		c.AbortWithStatus(http.StatusForbidden)

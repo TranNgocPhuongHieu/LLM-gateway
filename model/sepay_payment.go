@@ -431,7 +431,36 @@ func CompleteSepayBankPayment(invoice, transactionID, ip string) (bool, error) {
 	return completeSepayPayment(invoice, "", transactionID, ip, "bank")
 }
 
+const sepayManualTransactionPrefix = "manual:"
+const sepayDefaultManualReason = "Manually confirmed by administrator"
+
+// ConfirmSepayBankPayment settles a bank order on the administrator's word.
+// Without a SePay event ID the order's own invoice is the idempotency key; a
+// bank webhook that arrives later is absorbed by settleSepayPayment.
+func ConfirmSepayBankPayment(invoice, eventID, reason, ip string) (bool, error) {
+	eventID = strings.TrimSpace(eventID)
+	reason = strings.TrimSpace(reason)
+	if len(reason) > 255 {
+		return false, errors.New("receipt confirmation reason is too long")
+	}
+	if reason == "" {
+		reason = sepayDefaultManualReason
+	}
+	transactionID := sepayManualTransactionPrefix + invoice
+	if eventID != "" {
+		if !regexp.MustCompile(`^[1-9][0-9]{0,18}$`).MatchString(eventID) {
+			return false, errors.New("invalid SePay event ID")
+		}
+		transactionID = "bank:" + eventID
+	}
+	return settleSepayPayment(invoice, "", transactionID, ip, "bank", reason)
+}
+
 func completeSepayPayment(invoice, orderID, transactionID, ip, flow string) (bool, error) {
+	return settleSepayPayment(invoice, orderID, transactionID, ip, flow, "")
+}
+
+func settleSepayPayment(invoice, orderID, transactionID, ip, flow, manualReason string) (bool, error) {
 	var payment SepayPayment
 	already := false
 	err := DB.Transaction(func(tx *gorm.DB) error {
@@ -452,16 +481,26 @@ func completeSepayPayment(invoice, orderID, transactionID, ip, flow string) (boo
 			return ErrSepayConflict
 		}
 		if payment.ProviderTransaction != nil && *payment.ProviderTransaction != transactionID {
+			// The bank webhook for an order already confirmed by hand records the
+			// real event (so it cannot credit another order) without crediting again.
+			if flow == "bank" && manualReason == "" && topup.Status == common.TopUpStatusSuccess &&
+				strings.HasPrefix(*payment.ProviderTransaction, sepayManualTransactionPrefix) &&
+				strings.HasPrefix(transactionID, "bank:") {
+				already = true
+				return tx.Model(&payment).Update("provider_transaction", transactionID).Error
+			}
 			return ErrSepayConflict
 		}
-		if payment.VerificationStatus == SepayVerificationVoided {
+		// Manual receipt confirmation may settle a timed-out QR, never a cancelled order.
+		manualExpired := manualReason != "" && flow == "bank" && topup.Status == common.TopUpStatusExpired && payment.VerificationStatus == SepayVerificationVoided && payment.VerificationReason == "QR payment expired after 15 minutes"
+		if payment.VerificationStatus == SepayVerificationVoided && !manualExpired {
 			return ErrSepayConflict
 		}
 		if topup.Status == common.TopUpStatusSuccess {
 			already = true
 			return nil
 		}
-		if topup.Status != common.TopUpStatusPending || (orderID == "" && flow != "bank") || transactionID == "" {
+		if (topup.Status != common.TopUpStatusPending && !manualExpired) || (orderID == "" && flow != "bank") || transactionID == "" {
 			return ErrTopUpStatusInvalid
 		}
 		if err := creditTopUpQuota(tx, topup.UserId, payment.QuotaSnapshot, nil); err != nil {
@@ -474,7 +513,7 @@ func completeSepayPayment(invoice, orderID, transactionID, ip, flow string) (boo
 		payment.ProviderTransaction = &transactionID
 		payment.VerifiedAt = &now
 		payment.VerificationStatus = SepayVerificationPaid
-		payment.VerificationReason = ""
+		payment.VerificationReason = manualReason
 		payment.NextReconcileAt = nil
 		if err := tx.Save(&payment).Error; err != nil {
 			return err

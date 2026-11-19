@@ -6732,6 +6732,8 @@
     "View promotion pricing": "Xem bảng giá",
     "Top up for promotion": "Nạp tiền ngay",
     "{{count}} available promotions": "{{count}} khuyến mãi",
-    "Promotions apply automatically; no code needed.": "Áp dụng tự động, không cần nhập mã."
+    "Promotions apply automatically; no code needed.": "Áp dụng tự động, không cần nhập mã.",
+    "Confirm bank receipt": "Xác nhận đã nhận tiền",
+    "Confirm receipt for {{user}}, order {{order}}: {{money}} VND → {{credits}} credits. Previously added credits will NOT be deducted. Continue?": "Xác nhận đã nhận tiền của {{user}}, đơn {{order}}: {{money}} VND → cộng {{credits}} credits. Khoản đã cộng tay trước đó KHÔNG được trừ. Tiếp tục?"
   }
 }

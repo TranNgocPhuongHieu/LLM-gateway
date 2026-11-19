@@ -11,7 +11,6 @@ import (
 	"github.com/TranNgocPhuongHieu/LLM-gateway/constant"
 	"github.com/TranNgocPhuongHieu/LLM-gateway/setting/billing_setting"
 	"github.com/TranNgocPhuongHieu/LLM-gateway/setting/operation_setting"
-	"github.com/TranNgocPhuongHieu/LLM-gateway/setting/ratio_setting"
 	hostreasoning "github.com/TranNgocPhuongHieu/LLM-gateway/setting/reasoning"
 	"github.com/shopspring/decimal"
 )
@@ -127,16 +126,9 @@ const (
 	CacheWriteClaudeTTL CacheWriteMode = "claude_ttl"
 )
 
-// ResolveCacheWriteMode describes display and migration only. A generic engine
-// fallback is not configured cache-write pricing. Only Claude names inherit the
-// legacy dual-TTL rule; other models retain their configured write price.
+// Persisted write ratios remain readable for compatibility, but cache creation
+// is part of input and has no separately configurable billing lane.
 func ResolveCacheWriteMode(name string, configured PricingValues) CacheWriteMode {
-	if strings.Contains(strings.ToLower(name), "claude") {
-		return CacheWriteClaudeTTL
-	}
-	if _, exists := configured["CreateCacheRatio"]; exists {
-		return CacheWriteStandard
-	}
 	return CacheWriteNone
 }
 
@@ -189,12 +181,6 @@ func PreviewModelPricingConversion(name string, draft PricingValues) (*ModelPric
 		}
 		if slices.Contains(common.GetEndpointTypesByChannelType(channel.Type, name), constant.EndpointTypeOpenAIVideo) {
 			return &ModelPricingConversion{UnsupportedReason: "Video pricing must be converted manually."}, nil
-		}
-		if channel.Status == common.ChannelStatusEnabled && channel.Type == constant.ChannelTypeOpenRouter && strings.Contains(strings.ToLower(name), "claude") && !fixedPrice {
-			defaultRatio, hasDefault := ratio_setting.GetDefaultModelRatioMap()[name]
-			if hasDefault && effective["ModelRatio"] == defaultRatio && effective["CreateCacheRatio"] != float64(1) {
-				return &ModelPricingConversion{UnsupportedReason: "This OpenRouter Claude price derives cache-write usage from upstream cost and must be converted manually."}, nil
-			}
 		}
 		upstream := name
 		if channel.ModelMapping != nil && *channel.ModelMapping != "" {

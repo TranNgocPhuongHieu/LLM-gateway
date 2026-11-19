@@ -258,14 +258,6 @@ export function updateExpressionDraft(origExpr: string, draft: ModelSellingPrice
 
   if (!origExpr) {
     let expr = `tier("base", p * ${pVal} + c * ${cVal} + cr * ${crVal}`
-    if (draft.cacheWriteVnd !== undefined) {
-      const ccVal = expressionValue('cc', draft.cacheWriteVnd)
-      expr += ` + cc * ${ccVal}`
-    } else if (draft.model.includes('opus')) {
-      expr += ` + cc * 0.013`
-    } else if (draft.model.includes('sol')) {
-      expr += ` + cc * 0.008`
-    }
     expr += ')'
     return draft.longContext ? applyLongContextPricing(expr, draft.longContext) : expr
   }
@@ -288,15 +280,6 @@ export function updateExpressionDraft(origExpr: string, draft: ModelSellingPrice
     updated = updated.replace(/\bcr\s*\*\s*[0-9.]+/, `cr * ${crVal}`)
   } else if (draft.cacheReadVnd > 0) {
     updated = updated.replace(/tier\("base",\s*/, `tier("base", cr * ${crVal} + `)
-  }
-
-  if (draft.cacheWriteVnd !== undefined) {
-    const ccVal = expressionValue('cc', draft.cacheWriteVnd)
-    if (/\bcc\s*\*\s*[0-9.]+/.test(updated)) {
-      updated = updated.replace(/\bcc\s*\*\s*[0-9.]+/, `cc * ${ccVal}`)
-    } else if (draft.cacheWriteVnd > 0) {
-      updated = updated.replace(/tier\("base",\s*/, `tier("base", cc * ${ccVal} + `)
-    }
   }
 
   return draft.longContext ? applyLongContextPricing(updated, draft.longContext) : updated
@@ -658,15 +641,19 @@ export function PriceManagementView() {
     })
   }, [importDrafts])
 
-  const visibleSellingModels = sortedSellingModels
+  const visibleSellingModels = useMemo(() => sortedSellingModels
     .filter((item) => item.model.toLowerCase().includes(modelSearch.toLowerCase()) &&
       (familyFilter === 'all' || modelFamily(item.model) === familyFilter))
-    .sort((a, b) => modelFamily(a.model).localeCompare(modelFamily(b.model)) || a.model.localeCompare(b.model))
-  const visibleImportRows = sortedChannelImportRows.filter((item) =>
+    .sort((a, b) => modelFamily(a.model).localeCompare(modelFamily(b.model)) || a.model.localeCompare(b.model)),
+  [familyFilter, modelSearch, sortedSellingModels])
+  const visibleImportRows = useMemo(() => sortedChannelImportRows.filter((item) =>
     item.model.toLowerCase().includes(modelSearch.toLowerCase()) &&
-    (familyFilter === 'all' || modelFamily(item.model) === familyFilter))
-  const visibleNames = [...new Set((activeTab === 'selling' ? visibleSellingModels : visibleImportRows).map((item) => item.model))]
-  const selectedVisible = visibleNames.filter((model) => selectedModels.has(model))
+    (familyFilter === 'all' || modelFamily(item.model) === familyFilter)),
+  [familyFilter, modelSearch, sortedChannelImportRows])
+  const visibleNames = useMemo(() => [...new Set((activeTab === 'selling' ? visibleSellingModels : visibleImportRows).map((item) => item.model))],
+    [activeTab, visibleImportRows, visibleSellingModels])
+  const selectedVisible = useMemo(() => visibleNames.filter((model) => selectedModels.has(model)),
+    [selectedModels, visibleNames])
   const toggleModels = (names: string[], checked: boolean) => setSelectedModels((previous) => {
     const next = new Set(previous)
     for (const name of names) {
@@ -957,7 +944,6 @@ export function PriceManagementView() {
                             <TableHead className='text-right font-medium'>{t('Input (credit / 1M)')}</TableHead>
                             <TableHead className='text-right font-medium'>{t('Cache-read (credit / 1M)')}</TableHead>
                             <TableHead className='text-right font-medium'>{t('Output (credit / 1M)')}</TableHead>
-                            <TableHead className='text-right font-medium'>{t('Cache-write (credit / 1M)')}</TableHead>
                             <TableHead className='text-center w-[80px] font-medium'>{t('Actions')}</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -966,7 +952,7 @@ export function PriceManagementView() {
                             <Fragment key={item.model}>
                               {(index === 0 || modelFamily(visibleSellingModels[index - 1].model) !== modelFamily(item.model)) && (
                                 <TableRow className='bg-muted/40'>
-                                  <TableCell colSpan={7}>
+                                  <TableCell colSpan={6}>
                                     <label className='flex items-center gap-3 font-medium'>
                                       <Checkbox aria-label={`${t('Select group')} ${modelFamily(item.model)}`} checked={visibleNames.filter((name) => modelFamily(name) === modelFamily(item.model)).every((name) => selectedModels.has(name))} onCheckedChange={(checked) => toggleModels(visibleNames.filter((name) => modelFamily(name) === modelFamily(item.model)), checked)} />
                                       {modelFamily(item.model).toUpperCase()}
@@ -1049,18 +1035,6 @@ export function PriceManagementView() {
                                   }
                                   className='h-7 w-28 ml-auto text-right font-mono text-xs'
                                   aria-label={`${t('Output (credit / 1M)')} ${item.model}`}
-                                />
-                              </TableCell>
-                              <TableCell className='text-right py-2.5'>
-                                <PriceVndInput
-                                  valueVnd={item.cacheWriteVnd}
-                                  hasPricing={item.cacheWriteVnd !== undefined}
-                                  placeholder={t('Keep unchanged')}
-                                  onChangeVnd={(vnd) =>
-                                    handleSellingPriceChange(item.model, 'cacheWriteVnd', vnd)
-                                  }
-                                  className='h-7 w-28 ml-auto text-right font-mono text-xs'
-                                  aria-label={`${t('Cache-write (credit / 1M)')} ${item.model}`}
                                 />
                               </TableCell>
                               <TableCell className='text-center py-2.5'>
@@ -1223,7 +1197,7 @@ export function PriceManagementView() {
           </div>
           <p className='text-muted-foreground text-xs'>{t('Context includes cached input, not output. Above the threshold, multipliers apply to the entire request. Changes only affect new requests after saving selling prices.')}</p>
           <div className='grid grid-cols-2 gap-3'>
-            {(Object.keys(contextFields) as (keyof LongContextPricing)[]).map(field => (
+            {(Object.keys(contextFields) as (keyof LongContextPricing)[]).filter(field => field !== 'cacheWrite').map(field => (
               <label key={field} className='grid gap-1 text-xs'>
                 {t(field === 'threshold' ? 'Input context threshold (tokens)' : field === 'input' ? 'Input multiplier' : field === 'output' ? 'Output multiplier' : field === 'cacheRead' ? 'Cache-read multiplier' : 'Cache-write multiplier')}
                 <Input disabled={!contextEnabled} value={contextFields[field]} inputMode={field === 'threshold' ? 'numeric' : 'decimal'} onChange={event => setContextFields(previous => ({ ...previous, [field]: event.target.value }))} />

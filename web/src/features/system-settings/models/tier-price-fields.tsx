@@ -31,16 +31,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { PricingCurrency } from '@/features/model-pricing/currency'
 import { PricingAmountInput } from '@/features/model-pricing/pricing-amount-input'
 import { BILLING_EXTRA_VARS } from '@/features/pricing/lib/billing-expr'
 import type { VisualPrice } from '@/features/pricing/lib/billing-expression/visual'
-import {
-  CACHE_MODE_GENERIC,
-  CACHE_MODE_TIMED,
-  type CacheMode,
-} from '@/features/pricing/lib/tier-expr'
+import type { CacheMode } from '@/features/pricing/lib/tier-expr'
 import { cn } from '@/lib/utils'
 
 const PRICE_VARS = BILLING_EXTRA_VARS.map((variable) => ({
@@ -48,7 +43,7 @@ const PRICE_VARS = BILLING_EXTRA_VARS.map((variable) => ({
   key: variable.key as VisualPrice['variable'],
 }))
 const CACHE_PRICE_VARS = PRICE_VARS.filter(
-  (variable) => variable.group === 'cache' && variable.key !== 'img_cr'
+  (variable) => variable.key === 'cr'
 )
 const MEDIA_PRICE_ORDER = ['img', 'img_cr', 'img_o', 'ai', 'ao']
 const MEDIA_PRICE_VARS = PRICE_VARS.filter(
@@ -219,43 +214,8 @@ export function TierPriceFields(props: TierPriceFieldsProps) {
           </div>
 
           <div className='space-y-2'>
-            <div className='flex h-7 items-center'>
-              {props.onCacheModeChange && (
-                <Tabs
-                  value={props.cacheMode}
-                  onValueChange={(value) =>
-                    value !== null &&
-                    props.onCacheModeChange?.(value as CacheMode)
-                  }
-                >
-                  <TabsList className='h-8'>
-                    <TabsTrigger
-                      value={CACHE_MODE_GENERIC}
-                      className='px-2 text-xs'
-                    >
-                      {t('Generic cache')}
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value={CACHE_MODE_TIMED}
-                      className='px-2 text-xs'
-                    >
-                      {t('Time-sliced cache (Claude)')}
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              )}
-            </div>
             <div className='flex flex-wrap gap-x-4 gap-y-2'>
-              {CACHE_PRICE_VARS.map((variable) => {
-                if (
-                  variable.key === 'cc1h' &&
-                  props.onCacheModeChange &&
-                  props.cacheMode !== CACHE_MODE_TIMED
-                ) {
-                  return null
-                }
-                return renderPriceVariable(variable)
-              })}
+              {CACHE_PRICE_VARS.map(renderPriceVariable)}
             </div>
           </div>
         </div>

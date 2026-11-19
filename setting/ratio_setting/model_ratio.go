@@ -396,10 +396,6 @@ func DefaultModelRatio2JSONString() string {
 	return string(jsonBytes)
 }
 
-func GetDefaultModelRatioMap() map[string]float64 {
-	return defaultModelRatio
-}
-
 func GetDefaultModelPriceMap() map[string]float64 {
 	return defaultModelPrice
 }

@@ -977,6 +977,99 @@ func TestBuildTieredTokenParams_Len_Claude(t *testing.T) {
 	}
 }
 
+func TestInputOnlyCacheWriteUsage_Anthropic(t *testing.T) {
+	const expr = `len <= 272000 ? tier("base", cc * 0.3846153846153846 + p * 0.1538461538461539 + c * 0.7692307692307693) : tier("long_context", cc * (0.3846153846153846 * 2) + p * (0.1538461538461539 * 2) + c * (0.7692307692307693 * 2))`
+	for _, tc := range []struct {
+		name                       string
+		total, fiveMinute, oneHour int
+	}{
+		{name: "aggregate only", total: 325924},
+		{name: "explicit mixed TTLs", total: 325924, fiveMinute: 300000, oneHour: 25924},
+		{name: "one hour only", total: 325924, oneHour: 325924},
+		{name: "split only", fiveMinute: 300000, oneHour: 25924},
+		{name: "no cache write"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			usage, ok := dto.NewClaudeMessagesBillingUsage(&dto.ClaudeUsage{
+				InputTokens: 4, OutputTokens: 8469,
+				CacheCreationInputTokens:    tc.total,
+				ClaudeCacheCreation5mTokens: tc.fiveMinute,
+				ClaudeCacheCreation1hTokens: tc.oneHour,
+			}).CanonicalUsage()
+			require.True(t, ok)
+			usage.PromptTokensDetails.CachedTokens = 100
+			usage.BillingUsage.ClaudeUsage.CacheReadInputTokens = 100
+			normalized := inputOnlyCacheWriteUsage(usage, true)
+			require.Equal(t, 4, usage.PromptTokens, "must not mutate original usage")
+			require.Equal(t, tc.total, usage.BillingUsage.ClaudeUsage.CacheCreationInputTokens)
+			require.Equal(t, 100, normalized.PromptTokensDetails.CachedTokens)
+			require.Zero(t, normalized.PromptTokensDetails.CacheCreationTokensTotal())
+			require.Equal(t, normalized.PromptTokens, effectiveBillingUsage(normalized).PromptTokens)
+			require.Equal(t, normalized, inputOnlyCacheWriteUsage(normalized, true))
+			params := BuildTieredTokenParams(normalized, true, billingexpr.UsedVars(expr+" + cr * 0"))
+			require.Zero(t, params.CC)
+			require.Zero(t, params.CC1h)
+			write := max(tc.total, tc.fiveMinute+tc.oneHour)
+			require.Equal(t, float64(104+write), params.Len)
+			require.Equal(t, float64(4+write), params.P)
+			if tc.name == "aggregate only" {
+				result, err := billingexpr.ComputeTieredQuota(&billingexpr.BillingSnapshot{
+					ExprString: expr, QuotaPerUnit: 500000, GroupRatio: 1,
+				}, params)
+				require.NoError(t, err)
+				require.Equal(t, "long_context", result.MatchedTier)
+				require.EqualValues(t, 56657, result.ActualQuotaAfterGroup)
+			}
+		})
+	}
+}
+
+func TestInputOnlyCacheWriteUsage_Inclusive(t *testing.T) {
+	require.Nil(t, inputOnlyCacheWriteUsage(nil, false))
+	for _, semantic := range []string{"openai", "gemini", "", "anthropic"} {
+		t.Run(semantic, func(t *testing.T) {
+			original := &dto.Usage{PromptTokens: 1000, CompletionTokens: 100, UsageSemantic: semantic,
+				PromptTokensDetails: dto.InputTokenDetails{CachedTokens: 200, CacheWriteTokens: 300},
+				InputTokensDetails:  &dto.InputTokenDetails{CacheWriteTokens: 300},
+			}
+			usage := original
+			if semantic == "openai" {
+				usage = effectiveBillingUsage(&dto.Usage{BillingUsage: dto.NewOpenAIChatBillingUsage(original)})
+			}
+			normalized := inputOnlyCacheWriteUsage(usage, false)
+			require.Equal(t, 300, original.PromptTokensDetails.CacheWriteTokens)
+			require.Equal(t, 300, original.InputTokensDetails.CacheWriteTokens)
+			require.Equal(t, 1000, normalized.PromptTokens)
+			require.Equal(t, 1100, normalized.TotalTokens)
+			require.Zero(t, normalized.InputTokensDetails.CacheCreationTokensTotal())
+			require.Zero(t, effectiveBillingUsage(normalized).PromptTokensDetails.CacheCreationTokensTotal())
+			params := BuildTieredTokenParams(normalized, false, map[string]bool{"cc": true, "cc1h": true, "cr": true})
+			require.EqualValues(t, 800, params.P)
+			require.EqualValues(t, 1000, params.Len)
+			require.Zero(t, params.CC)
+			require.Zero(t, params.CC1h)
+		})
+	}
+}
+
+func TestInputOnlyCacheWriteUsage_RatioAndRawTokens(t *testing.T) {
+	ctx, _ := gin.CreateTestContext(nil)
+	info := &relaycommon.RelayInfo{StartTime: time.Now(), PriceData: types.PriceData{
+		ModelRatio: 1, CompletionRatio: 2, CacheRatio: 0.5,
+		CacheCreationRatio: 99, CacheCreation5mRatio: 99, CacheCreation1hRatio: 99,
+		GroupRatioInfo: types.GroupRatioInfo{GroupRatio: 1},
+	}}
+	usage := inputOnlyCacheWriteUsage(&dto.Usage{
+		UsageSemantic: "anthropic", PromptTokens: 4, CompletionTokens: 100,
+		PromptTokensDetails: dto.InputTokenDetails{CachedTokens: 200, CachedCreationTokens: 300},
+	}, true)
+	summary := calculateTextQuotaSummary(ctx, info, usage)
+	require.Equal(t, 304, summary.PromptTokens)
+	require.Equal(t, 604, summary.Quota)
+	require.Zero(t, cacheWriteTokensTotal(summary))
+	require.Equal(t, 604, rawTextTokenUsage(summary))
+}
+
 func TestBuildTieredTokenParams_Len_TierCondition(t *testing.T) {
 	// Test that len-based tier conditions work correctly when p is reduced by cache
 	usage := &dto.Usage{

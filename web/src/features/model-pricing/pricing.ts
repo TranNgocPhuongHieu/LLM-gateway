@@ -85,15 +85,7 @@ export function modelPricingDisplay(
       values.CacheRatio === undefined || Number(values.CacheRatio) === 1
         ? undefined
         : Number(values.CacheRatio),
-    create_cache_ratio:
-      values.CreateCacheRatio === undefined ||
-      !(
-        entry.cache_write_mode === 'standard' ||
-        entry.cache_write_mode === 'claude_ttl' ||
-        entry.configured?.CreateCacheRatio !== undefined
-      )
-        ? undefined
-        : Number(values.CreateCacheRatio),
+    create_cache_ratio: undefined,
     image_ratio:
       values.ImageRatio === undefined || Number(values.ImageRatio) === 1
         ? undefined

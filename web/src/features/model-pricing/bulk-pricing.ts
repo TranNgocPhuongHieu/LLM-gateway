@@ -57,7 +57,7 @@ export function readLongContextPricing(expression: string): { base: string; poli
 }
 export type BulkPriceMode = 'ratio' | 'percent' | 'value'
 export type PriceValues = Partial<Record<PriceField, number>>
-export const priceFields: PriceField[] = ['inputVnd', 'outputVnd', 'cacheReadVnd', 'cacheWriteVnd']
+export const priceFields: PriceField[] = ['inputVnd', 'outputVnd', 'cacheReadVnd']
 
 export function modelFamily(model: string): string {
   const name = model.toLowerCase()

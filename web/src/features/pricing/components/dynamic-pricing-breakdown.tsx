@@ -412,6 +412,7 @@ export function DynamicPricingBreakdown({
     }
     const fields: BreakdownPriceField[] = BILLING_PRICING_VARS.filter(
       (variable) => {
+        if (variable.key === 'cc' || variable.key === 'cc1h') return false
         if (hideCacheColumns && variable.group === 'cache') return false
         return tiers.some(
           (tier) =>

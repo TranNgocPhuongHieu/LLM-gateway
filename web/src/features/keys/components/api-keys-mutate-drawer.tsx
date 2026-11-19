@@ -303,7 +303,12 @@ export function ApiKeysMutateDrawer({ open, onOpenChange, currentRow }: ApiKeyMu
     }
   };
 
-  const onInvalid: SubmitErrorHandler<ApiKeyFormValues> = () => {
+  const onInvalid: SubmitErrorHandler<ApiKeyFormValues> = (errors) => {
+    // Quota mode, group and auto-group fields live in the collapsed Advanced
+    // section; open it so the highlighted fields are visible.
+    if (errors.quota_mode || errors.group || errors.auto_groups || errors.cross_group_retry) {
+      setAdvancedOpen(true);
+    }
     toast.error(t("Please fix the highlighted fields before saving"));
   };
 
@@ -371,55 +376,6 @@ export function ApiKeysMutateDrawer({ open, onOpenChange, currentRow }: ApiKeyMu
               />
               <FormField
                 control={form.control}
-                name="quota_mode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("Quota mode")}</FormLabel>
-                    <Select
-                      disabled={isUpdate}
-                      value={field.value}
-                      onValueChange={(value) => {
-                        field.onChange(value);
-                        if (value === "token") {
-                          form.setValue("unlimited_quota", false);
-                          form.setValue("remain_quota_dollars", 100_000_000);
-                        } else {
-                          form.setValue("remain_quota_dollars", 10);
-                        }
-                      }}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="billing">{t("Billing quota")}</SelectItem>
-                        {canCreateTokenPackages && (
-                          <SelectItem value="token">{t("Retail token (1:1)")}</SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      {quotaMode === "token"
-                        ? t(
-                            "Counts prompt, output and cache once; model price does not change token usage.",
-                          )
-                        : t("Uses the configured model and group billing ratios.")}
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              {quotaMode === "token" && (
-                <p className="text-xs text-muted-foreground">
-                  {t(
-                    "Text APIs only. The owner wallet is still billed separately. Create a new key to change quota mode.",
-                  )}
-                </p>
-              )}
-              <FormField
-                control={form.control}
                 name="name"
                 render={({ field }) => (
                   <FormItem>
@@ -431,93 +387,6 @@ export function ApiKeysMutateDrawer({ open, onOpenChange, currentRow }: ApiKeyMu
                   </FormItem>
                 )}
               />
-
-              <FormField
-                control={form.control}
-                name="group"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("Group")}</FormLabel>
-                    <FormControl>
-                      <ApiKeyGroupCombobox
-                        options={groups}
-                        value={field.value}
-                        onValueChange={(group) => {
-                          field.onChange(group);
-                          if (group === "auto") {
-                            form.setValue("cross_group_retry", true, {
-                              shouldDirty: true,
-                            });
-                            return;
-                          }
-                          form.setValue("cross_group_retry", false, {
-                            shouldDirty: true,
-                          });
-                        }}
-                        placeholder={t("Select a group")}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {selectedGroup === "auto" && (
-                <FormField
-                  control={form.control}
-                  name="auto_groups"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t("Auto group order")}</FormLabel>
-                      <FormDescription>
-                        {t("Choose and order the groups this API key will try.")}
-                      </FormDescription>
-                      <FormControl>
-                        <AutoGroupOrderEditor
-                          value={field.value}
-                          mode={autoGroupsMode}
-                          options={groups}
-                          globalOptions={globalAutoGroupOptions}
-                          maxCount={maxAutoGroups}
-                          onChange={(value) => {
-                            form.setValue("auto_groups_mode", value.mode, {
-                              shouldDirty: true,
-                              shouldValidate: false,
-                            });
-                            form.setValue("auto_groups", value.groups.slice(0, maxAutoGroups), {
-                              shouldDirty: true,
-                              shouldValidate: true,
-                            });
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-
-              {selectedGroup === "auto" && (
-                <FormField
-                  control={form.control}
-                  name="cross_group_retry"
-                  render={({ field }) => (
-                    <FormItem className={sideDrawerSwitchItemClassName()}>
-                      <div className="flex flex-col gap-0.5">
-                        <FormLabel className="text-sm">{t("Cross-group retry")}</FormLabel>
-                        <FormDescription className="line-clamp-2 text-xs sm:line-clamp-none">
-                          {t(
-                            "When enabled, if channels in the current group fail, it will try channels in the next group in order.",
-                          )}
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch checked={!!field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              )}
 
               <FormField
                 control={form.control}
@@ -674,7 +543,7 @@ export function ApiKeysMutateDrawer({ open, onOpenChange, currentRow }: ApiKeyMu
                   <SideDrawerSectionHeader
                     className="flex-1"
                     title={t("Advanced Settings")}
-                    description={t("Set API key access restrictions")}
+                    description={t("Routing, quota mode and access restrictions")}
                     icon={<Settings2 className="size-4" />}
                   />
                   <ChevronDown
@@ -686,6 +555,142 @@ export function ApiKeysMutateDrawer({ open, onOpenChange, currentRow }: ApiKeyMu
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="flex flex-col gap-4 pt-2">
+                    <FormField
+                      control={form.control}
+                      name="quota_mode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t("Quota mode")}</FormLabel>
+                          <Select
+                            disabled={isUpdate}
+                            value={field.value}
+                            onValueChange={(value) => {
+                              field.onChange(value);
+                              if (value === "token") {
+                                form.setValue("unlimited_quota", false);
+                                form.setValue("remain_quota_dollars", 100_000_000);
+                              } else {
+                                form.setValue("remain_quota_dollars", 10);
+                              }
+                            }}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="billing">{t("Billing quota")}</SelectItem>
+                              {canCreateTokenPackages && (
+                                <SelectItem value="token">{t("Retail token (1:1)")}</SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            {quotaMode === "token"
+                              ? t(
+                                  "Counts prompt, output and cache once; model price does not change token usage.",
+                                )
+                              : t("Uses the configured model and group billing ratios.")}
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    {quotaMode === "token" && (
+                      <p className="text-xs text-muted-foreground">
+                        {t(
+                          "Text APIs only. The owner wallet is still billed separately. Create a new key to change quota mode.",
+                        )}
+                      </p>
+                    )}
+                    <FormField
+                      control={form.control}
+                      name="group"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t("Group")}</FormLabel>
+                          <FormControl>
+                            <ApiKeyGroupCombobox
+                              options={groups}
+                              value={field.value}
+                              onValueChange={(group) => {
+                                field.onChange(group);
+                                if (group === "auto") {
+                                  form.setValue("cross_group_retry", true, {
+                                    shouldDirty: true,
+                                  });
+                                  return;
+                                }
+                                form.setValue("cross_group_retry", false, {
+                                  shouldDirty: true,
+                                });
+                              }}
+                              placeholder={t("Select a group")}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {selectedGroup === "auto" && (
+                      <FormField
+                        control={form.control}
+                        name="auto_groups"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t("Auto group order")}</FormLabel>
+                            <FormDescription>
+                              {t("Choose and order the groups this API key will try.")}
+                            </FormDescription>
+                            <FormControl>
+                              <AutoGroupOrderEditor
+                                value={field.value}
+                                mode={autoGroupsMode}
+                                options={groups}
+                                globalOptions={globalAutoGroupOptions}
+                                maxCount={maxAutoGroups}
+                                onChange={(value) => {
+                                  form.setValue("auto_groups_mode", value.mode, {
+                                    shouldDirty: true,
+                                    shouldValidate: false,
+                                  });
+                                  form.setValue("auto_groups", value.groups.slice(0, maxAutoGroups), {
+                                    shouldDirty: true,
+                                    shouldValidate: true,
+                                  });
+                                }}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+
+                    {selectedGroup === "auto" && (
+                      <FormField
+                        control={form.control}
+                        name="cross_group_retry"
+                        render={({ field }) => (
+                          <FormItem className={sideDrawerSwitchItemClassName()}>
+                            <div className="flex flex-col gap-0.5">
+                              <FormLabel className="text-sm">{t("Cross-group retry")}</FormLabel>
+                              <FormDescription className="line-clamp-2 text-xs sm:line-clamp-none">
+                                {t(
+                                  "When enabled, if channels in the current group fail, it will try channels in the next group in order.",
+                                )}
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch checked={!!field.value} onCheckedChange={field.onChange} />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    )}
+
                     <FormField
                       control={form.control}
                       name="model_limits"

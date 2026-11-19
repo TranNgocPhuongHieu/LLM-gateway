@@ -18,16 +18,18 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import { XPikiRequestLogsPage } from '@/features/xpiki-quota'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
 export const Route = createFileRoute('/_authenticated/usage-logs/audit')({
+  // This page duplicated /request-logs. Keep the super-admin guard, then
+  // forward to the single request-logs page.
   beforeLoad: () => {
     const { auth } = useAuthStore.getState()
     if (!auth.user || auth.user.role < ROLE.SUPER_ADMIN) {
       throw redirect({ to: '/403' })
     }
+    throw redirect({ to: '/request-logs', replace: true })
   },
-  component: XPikiRequestLogsPage,
+  component: () => null,
 })

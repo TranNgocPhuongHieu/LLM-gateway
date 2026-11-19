@@ -89,7 +89,7 @@ export function ConsumptionDistributionChart(
             {t('Quota Distribution')}
           </div>
           <span className='text-muted-foreground text-xs tabular-nums'>
-            {t('Chart total prefix', 'Tổng:')} {chartData.totalQuotaDisplay}
+            {t('Total:')} {chartData.totalQuotaDisplay}
           </span>
         </div>
 

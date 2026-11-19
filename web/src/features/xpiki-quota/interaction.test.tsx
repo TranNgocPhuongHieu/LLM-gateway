@@ -128,7 +128,7 @@ describe('XPiki dashboard interactions', () => {
       }],
     })
     mountLogs()
-    expect(await screen.findByText('Không xác định')).toBeTruthy()
+    expect(await screen.findByText('Unknown')).toBeTruthy()
   })
 
   it('shows failed fallback separately from a recovered request', async () => {
@@ -150,18 +150,18 @@ describe('XPiki dashboard interactions', () => {
   it('renders one collapsed price card for five keys and audits only when opened', async () => {
     localStorage.setItem('newapi_xpiki_quota_cache_actual_tariffs_v6', JSON.stringify({ report, timestamp: Date.now() }))
     mountQuota()
-    expect(screen.getAllByText('Giá theo token đã đối soát')).toHaveLength(1)
+    expect(screen.getAllByText('Reconciled price per token')).toHaveLength(1)
     expect(checkXPikiQuota).not.toHaveBeenCalled()
     await userEvent.click(screen.getAllByRole('button', { name: 'Show' })[0])
     await waitFor(() => expect(checkXPikiQuota).toHaveBeenCalledWith([], true))
-    await userEvent.click(screen.getByRole('combobox', { name: 'Key đối soát giá' }))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Price reconciliation key' }))
     await userEvent.click(await screen.findByRole('option', { name: 'Key 5' }))
-    expect(screen.getByRole('combobox', { name: 'Key đối soát giá' }).textContent).toContain('Key 5')
+    expect(screen.getByRole('combobox', { name: 'Price reconciliation key' }).textContent).toContain('Key 5')
     // Close the price-audit popup; a lingering Base UI dismiss handler would
     // swallow the first interaction of the next test.
     await userEvent.keyboard('{Escape}')
     await waitFor(() =>
-      expect(screen.queryByRole('combobox', { name: 'Key đối soát giá' })?.getAttribute('aria-expanded')).not.toBe('true')
+      expect(screen.queryByRole('combobox', { name: 'Price reconciliation key' })?.getAttribute('aria-expanded')).not.toBe('true')
     )
   })
 })

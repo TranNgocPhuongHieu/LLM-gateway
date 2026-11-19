@@ -99,6 +99,7 @@ const viInteger = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 })
 const formatPercent = (value: number) => `${viNumber.format(Math.max(0, Math.min(100, value)))}%`
 
 function KiroQuotaCard(props: { report: KiroQuotaReport | null; onReport: (report: KiroQuotaReport) => void; checkSignal: number; tokenKeys: CustomKeyItem[] }) {
+  const { t } = useTranslation()
   const { report, onReport } = props
   const [keys, setKeys] = useState<CustomKeyItem[]>(() => {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY_KIRO) || '[]') } catch { return [] }
@@ -125,24 +126,25 @@ function KiroQuotaCard(props: { report: KiroQuotaReport | null; onReport: (repor
   const totalLimit = report ? (report.total_limit || report.total_used + report.total_remaining) : 0
   const totalPercent = totalLimit && report ? (report.total_used / totalLimit) * 100 : 0
   const remainingPercent = 100 - totalPercent
-  const status = remainingPercent < 10 ? 'Nguy cấp' : remainingPercent < 30 ? 'Sắp hết' : 'Còn ổn'
+  const status = remainingPercent < 10 ? t('Critical') : remainingPercent < 30 ? t('Low') : t('Healthy')
   const statusClass = remainingPercent < 10 ? 'bg-[#3a1519] text-[#ff8f8f]' : remainingPercent < 30 ? 'bg-[#3d2c0c] text-[#ffbf47]' : 'bg-[#11382a] text-[#5be5a8]'
   return <Card className='flex h-full flex-col rounded-2xl border-[#26282d] bg-[#17181b] p-2'>
     <CardHeader className='pb-2'>
-      <div className='flex items-center justify-between gap-2'><CardTitle>Kiro</CardTitle><div className='flex items-center gap-2'><Badge className={cn('rounded-full border-0 px-3', statusClass)}>{status}</Badge><Button size='icon' variant='ghost' aria-label='Kiểm tra Kiro' onClick={() => mutation.mutate()} disabled={mutation.isPending}><RefreshCw className={cn('size-4', mutation.isPending && 'animate-spin')} /></Button></div></div>
-      <CardDescription>Còn lại · kiro.pix4k.com</CardDescription>
+      <div className='flex items-center justify-between gap-2'><CardTitle>Kiro</CardTitle><div className='flex items-center gap-2'><Badge className={cn('rounded-full border-0 px-3', statusClass)}>{status}</Badge><Button size='icon' variant='ghost' aria-label={t('Check Kiro')} onClick={() => mutation.mutate()} disabled={mutation.isPending}><RefreshCw className={cn('size-4', mutation.isPending && 'animate-spin')} /></Button></div></div>
+      <CardDescription>{t('Remaining · kiro.pix4k.com')}</CardDescription>
       <div className='flex items-baseline gap-2 text-4xl font-bold tabular-nums tracking-tight'>{report ? viInteger.format(report.total_remaining) : '—'} <span className='text-base font-medium text-muted-foreground'>credit</span></div>
     </CardHeader>
     <CardContent className='flex flex-1 flex-col space-y-3'>
       <div className='h-2 overflow-hidden rounded-full bg-[#2a2d33]'><div className={cn('h-full rounded-full', remainingPercent < 10 ? 'bg-[#ff6b6b]' : remainingPercent < 30 ? 'bg-[#f5a524]' : 'bg-[#3ddc97]')} style={{ width: `${Math.min(100, Math.max(0, remainingPercent))}%` }} /></div>
-      <div className='flex justify-between text-xs text-muted-foreground'><span>{report ? `${formatPercent(remainingPercent)} còn lại` : 'Chưa kiểm tra'}</span><span>Tổng {viInteger.format(totalLimit || 0)}</span></div>
-      <div className='grid grid-cols-3 gap-3 border-t pt-3 text-sm'><div><div className='text-xs text-muted-foreground'>Đã dùng</div><div className='font-semibold tabular-nums'>{report ? viInteger.format(report.total_used) : '—'}</div></div><div><div className='text-xs text-muted-foreground'>Mức dùng</div><div className='font-semibold tabular-nums'>{report ? formatPercent(totalPercent) : '—'}</div></div><div><div className='text-xs text-muted-foreground'>Khóa hoạt động</div><div className='font-semibold'>{report ? `${report.keys.filter((key) => !key.error).length} / ${report.keys.length}` : '—'}</div></div></div>
-      <div className='mt-auto flex items-center justify-between gap-2 pt-4'><span className='text-xs text-muted-foreground'>Key chỉ lưu trên trình duyệt này.</span><div>{showInput ? <div className='flex gap-2'><Input autoFocus className='h-8 w-28' type='password' value={draft} onChange={(e) => setDraft(e.target.value)} placeholder='Key' onKeyDown={(e) => e.key === 'Enter' && add()} /><Button size='sm' variant='outline' onClick={add}>Thêm</Button></div> : <Button size='sm' variant='link' className='px-0' onClick={() => setShowInput(true)}>+ Thêm key</Button>}</div></div>
+      <div className='flex justify-between text-xs text-muted-foreground'><span>{report ? t('{{percent}} remaining', { percent: formatPercent(remainingPercent) }) : t('Not checked yet')}</span><span>{t('Total {{value}}', { value: viInteger.format(totalLimit || 0) })}</span></div>
+      <div className='grid grid-cols-3 gap-3 border-t pt-3 text-sm'><div><div className='text-xs text-muted-foreground'>{t('Used')}</div><div className='font-semibold tabular-nums'>{report ? viInteger.format(report.total_used) : '—'}</div></div><div><div className='text-xs text-muted-foreground'>{t('Usage')}</div><div className='font-semibold tabular-nums'>{report ? formatPercent(totalPercent) : '—'}</div></div><div><div className='text-xs text-muted-foreground'>{t('Active keys')}</div><div className='font-semibold'>{report ? `${report.keys.filter((key) => !key.error).length} / ${report.keys.length}` : '—'}</div></div></div>
+      <div className='mt-auto flex items-center justify-between gap-2 pt-4'><span className='text-xs text-muted-foreground'>{t('Keys are stored only in this browser.')}</span><div>{showInput ? <div className='flex gap-2'><Input autoFocus className='h-8 w-28' type='password' value={draft} onChange={(e) => setDraft(e.target.value)} placeholder='Key' onKeyDown={(e) => e.key === 'Enter' && add()} /><Button size='sm' variant='outline' onClick={add}>{t('Add')}</Button></div> : <Button size='sm' variant='link' className='px-0' onClick={() => setShowInput(true)}>{t('+ Add key')}</Button>}</div></div>
     </CardContent>
   </Card>
 }
 
 function KiroTokenQuotaCard(props: { report: KiroQuotaReport | null; onCheckKey: (key: string) => void }) {
+  const { t } = useTranslation()
   const { report } = props
   const [draft, setDraft] = useState('')
   const tokenKeys = report?.keys.filter((key) => key.quota_mode === 'token' && !key.error) ?? []
@@ -152,15 +154,15 @@ function KiroTokenQuotaCard(props: { report: KiroQuotaReport | null; onCheckKey:
   const percent = limit > 0 ? (used / limit) * 100 : 0
   const hasErrors = report?.keys.some((key) => key.error) ?? false
   return <Card className='flex h-full flex-col rounded-2xl border-[#26282d] bg-[#17181b] p-2'>
-    <CardHeader className='pb-2'><div className='flex items-center justify-between gap-2'><CardTitle>Kiro Token</CardTitle><Badge className={cn('rounded-full border-0 px-3', percent >= 90 ? 'bg-[#3a1519] text-[#ff8f8f]' : percent >= 70 ? 'bg-[#3d2c0c] text-[#ffbf47]' : 'bg-[#11382a] text-[#5be5a8]')}>{tokenKeys.length ? (percent >= 90 ? 'Nguy cấp' : percent >= 70 ? 'Sắp hết' : 'Còn ổn') : 'Chưa có key'}</Badge></div><CardDescription>Còn lại · tính theo token</CardDescription><div className='flex items-baseline gap-2 text-4xl font-bold tabular-nums tracking-tight'>{tokenKeys.length ? viInteger.format(remaining) : '—'} <span className='text-base font-medium text-muted-foreground'>token</span></div></CardHeader>
-    <CardContent className='flex flex-1 flex-col space-y-3'><div className='h-2 overflow-hidden rounded-full bg-[#2a2d33]'><div className='h-full rounded-full bg-[#3ddc97]' style={{ width: `${Math.min(100, Math.max(0, 100 - percent))}%` }} /></div><div className='flex justify-between text-xs text-muted-foreground'><span>{tokenKeys.length ? `${formatPercent(100 - percent)} còn lại` : 'Chưa kiểm tra'}</span><span>Tổng {viInteger.format(limit)}</span></div><div className='grid grid-cols-3 gap-3 border-t pt-3 text-sm'><div><div className='text-xs text-muted-foreground'>Đã dùng</div><div className='font-semibold tabular-nums'>{tokenKeys.length ? viInteger.format(used) : '—'}</div></div><div><div className='text-xs text-muted-foreground'>Mức dùng</div><div className='font-semibold tabular-nums'>{tokenKeys.length ? formatPercent(percent) : '—'}</div></div><div><div className='text-xs text-muted-foreground'>Khóa hoạt động</div><div className='font-semibold'>{tokenKeys.length} / {report?.keys.filter((key) => key.quota_mode === 'token').length ?? 0}</div></div></div><div className='mt-auto pt-4 text-xs text-muted-foreground'>Key token dùng chung thao tác kiểm tra Kiro; không cộng vào card credit.</div></CardContent>
+    <CardHeader className='pb-2'><div className='flex items-center justify-between gap-2'><CardTitle>Kiro Token</CardTitle><Badge className={cn('rounded-full border-0 px-3', percent >= 90 ? 'bg-[#3a1519] text-[#ff8f8f]' : percent >= 70 ? 'bg-[#3d2c0c] text-[#ffbf47]' : 'bg-[#11382a] text-[#5be5a8]')}>{tokenKeys.length ? (percent >= 90 ? t('Critical') : percent >= 70 ? t('Low') : t('Healthy')) : t('No keys')}</Badge></div><CardDescription>{t('Remaining · counted in tokens')}</CardDescription><div className='flex items-baseline gap-2 text-4xl font-bold tabular-nums tracking-tight'>{tokenKeys.length ? viInteger.format(remaining) : '—'} <span className='text-base font-medium text-muted-foreground'>token</span></div></CardHeader>
+    <CardContent className='flex flex-1 flex-col space-y-3'><div className='h-2 overflow-hidden rounded-full bg-[#2a2d33]'><div className='h-full rounded-full bg-[#3ddc97]' style={{ width: `${Math.min(100, Math.max(0, 100 - percent))}%` }} /></div><div className='flex justify-between text-xs text-muted-foreground'><span>{tokenKeys.length ? t('{{percent}} remaining', { percent: formatPercent(100 - percent) }) : t('Not checked yet')}</span><span>{t('Total {{value}}', { value: viInteger.format(limit) })}</span></div><div className='grid grid-cols-3 gap-3 border-t pt-3 text-sm'><div><div className='text-xs text-muted-foreground'>{t('Used')}</div><div className='font-semibold tabular-nums'>{tokenKeys.length ? viInteger.format(used) : '—'}</div></div><div><div className='text-xs text-muted-foreground'>{t('Usage')}</div><div className='font-semibold tabular-nums'>{tokenKeys.length ? formatPercent(percent) : '—'}</div></div><div><div className='text-xs text-muted-foreground'>{t('Active keys')}</div><div className='font-semibold'>{tokenKeys.length} / {report?.keys.filter((key) => key.quota_mode === 'token').length ?? 0}</div></div></div><div className='mt-auto pt-4 text-xs text-muted-foreground'>{t('Token keys share the Check Kiro action; they are not added to the credit card.')}</div></CardContent>
     <CardContent className='space-y-2'>
-      {hasErrors && <p role='alert' className='text-sm text-destructive'>Có khóa kiểm tra thất bại; số liệu có thể chưa đầy đủ. Xem chi tiết theo khóa.</p>}
+      {hasErrors && <p role='alert' className='text-sm text-destructive'>{t('Some key checks failed; figures may be incomplete. See details by key.')}</p>}
       <form className='flex gap-2' onSubmit={(event) => { event.preventDefault(); props.onCheckKey(draft.trim()); setDraft('') }}>
         <Input type='password' aria-label='Key Kiro Token' placeholder='Key Kiro Token' value={draft} onChange={(event) => setDraft(event.target.value)} autoComplete='off' />
-        <Button type='submit' variant='outline'>Kiểm tra token</Button>
+        <Button type='submit' variant='outline'>{t('Check token')}</Button>
       </form>
-      <p className='text-xs text-muted-foreground'>Key nhập tại đây chỉ giữ trong bộ nhớ đến khi tải lại trang.</p>
+      <p className='text-xs text-muted-foreground'>{t('Keys entered here are kept in memory until the page reloads.')}</p>
     </CardContent>
   </Card>
 }
@@ -170,6 +172,7 @@ function XPikiSourceCard(props: {
   onCheck: () => void
   pending: boolean
 }) {
+  const { t } = useTranslation()
   const { report, onCheck, pending } = props
   const pools = report ? referenceTokenPools(report) : []
   const pool = pools.find((item) => item.model === 'claude-opus-5-5') ?? pools[0]
@@ -177,26 +180,27 @@ function XPikiSourceCard(props: {
   const used = pool && !pool.unlimited ? formatPoolTokens(pool.used) : '—'
   const limit = pool && !pool.unlimited ? formatPoolTokens(pool.limit) : '—'
   const remainingPercent = pool && pool.limit ? Number(pool.remaining) / Number(pool.limit) * 100 : 0
-  const status = remainingPercent < 10 ? 'Nguy cấp' : remainingPercent < 30 ? 'Sắp hết' : 'Còn ổn'
+  const status = remainingPercent < 10 ? t('Critical') : remainingPercent < 30 ? t('Low') : t('Healthy')
   const statusClass = remainingPercent < 10 ? 'bg-[#3a1519] text-[#ff8f8f]' : remainingPercent < 30 ? 'bg-[#3d2c0c] text-[#ffbf47]' : 'bg-[#11382a] text-[#5be5a8]'
   return (
     <Card className='flex h-full flex-col rounded-2xl border-[#26282d] bg-[#17181b] p-2'>
       <CardHeader>
-        <div className='flex items-center justify-between gap-2'><CardTitle>XPiki</CardTitle><div className='flex items-center gap-2'><Badge className={cn('rounded-full border-0 px-3', statusClass)}>{status}</Badge><Button size='icon' variant='ghost' aria-label='Kiểm tra XPiki' onClick={onCheck} disabled={pending}><RefreshCw className={cn('size-4', pending && 'animate-spin')} /></Button></div></div>
-        <CardDescription>Còn lại · {pool?.label ?? 'Claude Opus 5.5'}</CardDescription>
+        <div className='flex items-center justify-between gap-2'><CardTitle>XPiki</CardTitle><div className='flex items-center gap-2'><Badge className={cn('rounded-full border-0 px-3', statusClass)}>{status}</Badge><Button size='icon' variant='ghost' aria-label={t('Check XPiki')} onClick={onCheck} disabled={pending}><RefreshCw className={cn('size-4', pending && 'animate-spin')} /></Button></div></div>
+        <CardDescription>{t('Remaining · {{label}}', { label: pool?.label ?? 'Claude Opus 5.5' })}</CardDescription>
         <div className='flex items-baseline gap-2 text-4xl font-bold tabular-nums tracking-tight'>{remaining} <span className='text-base font-medium text-muted-foreground'>token</span></div>
       </CardHeader>
       <CardContent className='flex flex-1 flex-col space-y-4'>
         <div className='h-2 overflow-hidden rounded-full bg-[#2a2d33]'><div className={cn('h-full rounded-full', remainingPercent < 10 ? 'bg-[#ff6b6b]' : remainingPercent < 30 ? 'bg-[#f5a524]' : 'bg-[#3ddc97]')} style={{ width: `${Math.min(100, Math.max(0, remainingPercent))}%` }} /></div>
-        <div className='flex justify-between text-xs text-muted-foreground'><span>{remainingPercent ? `${formatPercent(remainingPercent)} còn lại` : 'Chưa kiểm tra'}</span><span>Giới hạn {limit}</span></div>
-        <div className='grid grid-cols-3 gap-3 border-t pt-3 text-sm'><div><div className='text-xs text-muted-foreground'>Đã dùng</div><div className='font-semibold tabular-nums'>{used}</div></div><div><div className='text-xs text-muted-foreground'>Mức dùng</div><div className='font-semibold tabular-nums'>{remainingPercent ? formatPercent(100 - remainingPercent) : '—'}</div></div><div><div className='text-xs text-muted-foreground'>Khóa hoạt động</div><div className='font-semibold'>{report ? `${report.keys.filter((key) => !key.error).length} / ${report.keys.length}` : '—'}</div></div></div>
-        <div className='mt-auto pt-4 text-xs text-muted-foreground'>GPT tính theo token Astra; Claude tính theo token Opus 5.5. Không cộng lẫn hai loại token.</div>
+        <div className='flex justify-between text-xs text-muted-foreground'><span>{remainingPercent ? t('{{percent}} remaining', { percent: formatPercent(remainingPercent) }) : t('Not checked yet')}</span><span>{t('Limit {{value}}', { value: limit })}</span></div>
+        <div className='grid grid-cols-3 gap-3 border-t pt-3 text-sm'><div><div className='text-xs text-muted-foreground'>{t('Used')}</div><div className='font-semibold tabular-nums'>{used}</div></div><div><div className='text-xs text-muted-foreground'>{t('Usage')}</div><div className='font-semibold tabular-nums'>{remainingPercent ? formatPercent(100 - remainingPercent) : '—'}</div></div><div><div className='text-xs text-muted-foreground'>{t('Active keys')}</div><div className='font-semibold'>{report ? `${report.keys.filter((key) => !key.error).length} / ${report.keys.length}` : '—'}</div></div></div>
+        <div className='mt-auto pt-4 text-xs text-muted-foreground'>{t('GPT is counted in Astra tokens; Claude is counted in Opus 5.5 tokens. The two token types are not added together.')}</div>
       </CardContent>
     </Card>
   )
 }
 
 function SourceKeyDetails(props: { xpiki: XPikiQuotaReport | null; kiro: KiroQuotaReport | null }) {
+  const { t } = useTranslation()
   const rows = [
     ...(props.xpiki?.keys ?? []).map((key) => ({
       label: key.label,
@@ -206,7 +210,7 @@ function SourceKeyDetails(props: { xpiki: XPikiQuotaReport | null; kiro: KiroQuo
       remaining: key.remaining_tokens ? `${new Intl.NumberFormat('vi-VN').format(Number(key.remaining_tokens.replace(/,/g, '')))} token` : key.remaining_vnd || '—',
       limit: key.limit_tokens ? ` / ${new Intl.NumberFormat('vi-VN').format(Number(key.limit_tokens.replace(/,/g, '')))} token` : '',
       percent: key.used_percent ? `${Math.max(0, 100 - Number.parseFloat(key.used_percent))}%` : '—',
-      status: key.error ? key.error : (Number.parseFloat(key.used_percent) >= 90 ? 'Nguy cấp' : Number.parseFloat(key.used_percent) >= 70 ? 'Sắp hết' : 'Còn ổn'),
+      status: key.error ? key.error : (Number.parseFloat(key.used_percent) >= 90 ? t('Critical') : Number.parseFloat(key.used_percent) >= 70 ? t('Low') : t('Healthy')),
     })),
     ...(props.kiro?.keys ?? []).filter((key) => key.quota_mode !== 'token').map((key) => ({
       label: key.label,
@@ -216,19 +220,19 @@ function SourceKeyDetails(props: { xpiki: XPikiQuotaReport | null; kiro: KiroQuo
       remaining: key.unlimited ? '∞' : `${viInteger.format(key.remaining_credits)} credit`,
       limit: key.unlimited ? '' : ` / ${viInteger.format(key.limit_credits)} credit`,
       percent: key.unlimited ? '∞' : formatPercent(100 - key.used_percent),
-      status: key.error ? key.error : (key.used_percent >= 90 ? 'Nguy cấp' : key.used_percent >= 70 ? 'Sắp hết' : 'Còn ổn'),
+      status: key.error ? key.error : (key.used_percent >= 90 ? t('Critical') : key.used_percent >= 70 ? t('Low') : t('Healthy')),
     })),
     ...(props.kiro?.keys ?? []).filter((key) => key.quota_mode === 'token').map((key) => ({
       label: key.label, detail: key.name, channelId: undefined, source: 'Kiro Token',
       remaining: `${viInteger.format(key.remaining_tokens ?? 0)} token`, limit: ` / ${viInteger.format(key.limit_tokens ?? 0)} token`,
-      percent: formatPercent(100 - (key.used_percent || 0)), status: key.error ? key.error : ((key.used_percent || 0) >= 90 ? 'Nguy cấp' : (key.used_percent || 0) >= 70 ? 'Sắp hết' : 'Còn ổn'),
+      percent: formatPercent(100 - (key.used_percent || 0)), status: key.error ? key.error : ((key.used_percent || 0) >= 90 ? t('Critical') : (key.used_percent || 0) >= 70 ? t('Low') : t('Healthy')),
     })),
   ]
   if (!rows.length) return null
   return <Card className='rounded-2xl border-[#26282d] bg-[#17181b] p-2 shadow-none'>
-    <CardHeader><CardTitle>Chi tiết theo khóa</CardTitle><CardDescription>{rows.length} khóa · {new Set(rows.map((row) => row.source)).size} nguồn · sắp xếp theo mức còn lại thấp nhất</CardDescription></CardHeader>
+    <CardHeader><CardTitle>{t('Details by key')}</CardTitle><CardDescription>{t('{{keys}} keys · {{sources}} sources · sorted by lowest remaining', { keys: rows.length, sources: new Set(rows.map((row) => row.source)).size })}</CardDescription></CardHeader>
     <CardContent className='overflow-x-auto'>
-      <table className='w-full min-w-[720px] text-sm'><thead><tr className='border-b text-left text-muted-foreground'><th className='px-3 py-2 font-medium'>Khóa</th><th className='px-3 py-2 font-medium'>Nguồn</th><th className='px-3 py-2 font-medium'>Còn lại</th><th className='px-3 py-2 font-medium'>Mức còn lại</th><th className='px-3 py-2 text-right font-medium'>Trạng thái</th></tr></thead><tbody>{rows.sort((a, b) => Number.parseFloat(a.percent) - Number.parseFloat(b.percent)).map((row) => { const pct = Number.parseFloat(row.percent); const tone = pct < 10 ? ['bg-[#3a1519]', 'text-[#ff8f8f]', 'bg-[#ff6b6b]'] : pct < 30 ? ['bg-[#3d2c0c]', 'text-[#ffbf47]', 'bg-[#f5a524]'] : ['bg-[#11382a]', 'text-[#5be5a8]', 'bg-[#3ddc97]']; return <tr key={`${row.source}-${row.label}`} className='border-b last:border-0'><td className='px-3 py-3 font-medium'>{row.channelId ? <a href='/channels' className='text-primary hover:underline'>{row.label}</a> : row.label}{row.detail && <div className='max-w-[180px] truncate text-xs font-normal text-muted-foreground' title={row.detail}>{row.detail}</div>}</td><td className='px-3 py-3'><Badge variant='secondary'>{row.source}</Badge></td><td className='px-3 py-3 font-semibold tabular-nums'><div>{row.remaining}</div><div className='text-xs font-normal text-muted-foreground'>{row.limit}</div></td><td className='px-3 py-3'><div className='flex items-center gap-2'><div className='h-2 w-28 overflow-hidden rounded-full bg-[#2a2d33]'><div className={cn('h-full rounded-full', tone[2])} style={{ width: `${Math.min(100, Math.max(0, pct || 0))}%` }} /></div><span className='tabular-nums'>{row.percent}</span></div></td><td className='px-3 py-3 text-right'><Badge className={cn('rounded-full border-0', tone[0], tone[1])}>{row.status}</Badge></td></tr>})}</tbody></table>
+      <table className='w-full min-w-[720px] text-sm'><thead><tr className='border-b text-left text-muted-foreground'><th className='px-3 py-2 font-medium'>{t('Key')}</th><th className='px-3 py-2 font-medium'>{t('Source')}</th><th className='px-3 py-2 font-medium'>{t('Remaining')}</th><th className='px-3 py-2 font-medium'>{t('Remaining level')}</th><th className='px-3 py-2 text-right font-medium'>{t('Status')}</th></tr></thead><tbody>{rows.sort((a, b) => Number.parseFloat(a.percent) - Number.parseFloat(b.percent)).map((row) => { const pct = Number.parseFloat(row.percent); const tone = pct < 10 ? ['bg-[#3a1519]', 'text-[#ff8f8f]', 'bg-[#ff6b6b]'] : pct < 30 ? ['bg-[#3d2c0c]', 'text-[#ffbf47]', 'bg-[#f5a524]'] : ['bg-[#11382a]', 'text-[#5be5a8]', 'bg-[#3ddc97]']; return <tr key={`${row.source}-${row.label}`} className='border-b last:border-0'><td className='px-3 py-3 font-medium'>{row.channelId ? <a href='/channels' className='text-primary hover:underline'>{row.label}</a> : row.label}{row.detail && <div className='max-w-[180px] truncate text-xs font-normal text-muted-foreground' title={row.detail}>{row.detail}</div>}</td><td className='px-3 py-3'><Badge variant='secondary'>{row.source}</Badge></td><td className='px-3 py-3 font-semibold tabular-nums'><div>{row.remaining}</div><div className='text-xs font-normal text-muted-foreground'>{row.limit}</div></td><td className='px-3 py-3'><div className='flex items-center gap-2'><div className='h-2 w-28 overflow-hidden rounded-full bg-[#2a2d33]'><div className={cn('h-full rounded-full', tone[2])} style={{ width: `${Math.min(100, Math.max(0, pct || 0))}%` }} /></div><span className='tabular-nums'>{row.percent}</span></div></td><td className='px-3 py-3 text-right'><Badge className={cn('rounded-full border-0', tone[0], tone[1])}>{row.status}</Badge></td></tr>})}</tbody></table>
     </CardContent>
   </Card>
 }
@@ -344,7 +348,7 @@ export function StatCards(props: {
       <Card className='relative overflow-hidden rounded-xl border border-border bg-background shadow-none ring-0'>
         <CardHeader className='pb-2'>
           <div className='flex items-center justify-between'>
-            <CardDescription className='font-medium'>{t('Token quy đổi còn lại')}</CardDescription>
+            <CardDescription className='font-medium'>{t('Remaining converted tokens')}</CardDescription>
             <div className='flex items-center gap-1.5'>
               <div className='p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'>
                 <Coins className='size-4' />
@@ -361,7 +365,7 @@ export function StatCards(props: {
         </CardHeader>
         <CardContent className='pt-0 space-y-2'>
           <div className='text-xs text-muted-foreground'>
-            {t('GPT tính theo token Astra; Claude tính theo token Opus 5.5. Không cộng lẫn hai loại token.')}
+            {t('GPT is counted in Astra tokens; Claude is counted in Opus 5.5 tokens. The two token types are not added together.')}
           </div>
         </CardContent>
       </Card>
@@ -391,7 +395,7 @@ export function StatCards(props: {
             )}
           </div>
           <div className='text-[11px] text-muted-foreground pt-1.5'>
-            {t('Số khóa kết nối sẵn sàng định tuyến')}
+            {t('Number of connected keys ready for routing')}
           </div>
         </CardContent>
       </Card>
@@ -418,7 +422,7 @@ export function StatCards(props: {
             )}
           </div>
           <div className='text-[11px] text-muted-foreground pt-1.5'>
-            {t('Dữ liệu đồng bộ trực tiếp từ upstream')}
+            {t('Data synced directly from upstream')}
           </div>
         </CardContent>
       </Card>
@@ -664,7 +668,7 @@ function ModelRatioTable(props: { profiles: XPikiQuotaModelProfile[]; customKeys
         <div className='flex flex-wrap items-center justify-between gap-2'>
           <CardTitle className='text-sm font-semibold flex items-center gap-2'>
             <Sparkles className='size-4 text-amber-500' />
-            <span>{t('Giá theo token đã đối soát')}</span>
+            <span>{t('Reconciled price per token')}</span>
           </CardTitle>
           <div className='flex items-center gap-2'>
             <Badge variant='outline' className='text-xs'>{profiles.reduce((count, item) => count + item.labels.length, 0)} key</Badge>
@@ -694,8 +698,8 @@ function ModelRatioTable(props: { profiles: XPikiQuotaModelProfile[]; customKeys
             <Select value={profile?.labels.join('|') ?? ''} onValueChange={(value) => {
               if (typeof value === 'string') setProfileFilter(value)
             }}>
-              <SelectTrigger size='sm' aria-label={t('Key đối soát giá')}>
-                <SelectValue>{profile?.labels.join(', ') || t('Chưa có key')}</SelectValue>
+              <SelectTrigger size='sm' aria-label={t('Price reconciliation key')}>
+                <SelectValue>{profile?.labels.join(', ') || t('No keys')}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {profiles.map((item) => (
@@ -707,15 +711,15 @@ function ModelRatioTable(props: { profiles: XPikiQuotaModelProfile[]; customKeys
             </Select>
             <Button variant='outline' size='sm' disabled={pricingQuery.isFetching} onClick={() => pricingQuery.refetch()}>
               <RefreshCw className={cn('size-3.5', pricingQuery.isFetching && 'animate-spin')} />
-              {t('Đối soát lại giá')}
+              {t('Reconcile prices again')}
             </Button>
-            {pricingQuery.isFetching && <span className='text-xs text-muted-foreground'>{t('Đang tải biên lai đối soát giá…')}</span>}
+            {pricingQuery.isFetching && <span className='text-xs text-muted-foreground'>{t('Loading price reconciliation receipts…')}</span>}
           </div>
-          {pricingQuery.isError && <ErrorState title={t('Không tải được giá đối soát')} onRetry={() => pricingQuery.refetch()} />}
+          {pricingQuery.isError && <ErrorState title={t('Could not load reconciled prices')} onRetry={() => pricingQuery.refetch()} />}
           <p className='px-4 py-3 text-xs text-muted-foreground'>
-            {profile?.price_basis}. {t('Mức thu thực tế /1M token, đã gồm hệ số và khớp ít nhất 3 biên lai cùng key/model/mức thu. Quét tối đa 1.000 biên lai gần nhất/key. Model có nhiều mức thu được tách riêng; đây không phải giá cơ sở hay cam kết giá tương lai.')}
-            <span className='block mt-1'>{t('Input là token không cache; cache-read tính riêng, không trừ hai lần. Cache-write và model chưa đối soát để trống, không phải miễn phí.')}</span>
-            {profile?.pricing_checked_at && <span className='block mt-1'>{t('Lần tải biên lai')}: {new Date(profile.pricing_checked_at).toLocaleString('vi-VN')} · {t('Kết quả được lưu tối đa 10 phút để tránh giới hạn tải XPiki.')}</span>}
+            {profile?.price_basis}. {t('Effective charge per 1M tokens, including the multiplier, matched against at least 3 receipts with the same key, model and charge level. Scans up to 1,000 most recent receipts per key. Models with several charge levels are shown separately; this is not a base price or a future price commitment.')}
+            <span className='block mt-1'>{t('Input is non-cached tokens; cache-read is billed separately and not subtracted twice. Cache-write and unreconciled models are left blank and are not free.')}</span>
+            {profile?.pricing_checked_at && <span className='block mt-1'>{t('Receipts loaded at')}: {new Date(profile.pricing_checked_at).toLocaleString('vi-VN')} · {t('Results are cached for up to 10 minutes to avoid XPiki rate limits.')}</span>}
             {profile?.pricing_warning && <span className='block mt-1 text-amber-600'>{profile.pricing_warning}</span>}
           </p>
           <StaticDataTable
@@ -728,38 +732,38 @@ function ModelRatioTable(props: { profiles: XPikiQuotaModelProfile[]; customKeys
                 cell: (row) => (
                   <div className='font-semibold text-foreground'>
                     {row.model}
-                    {!row.observed_multiplier && row.unverified_samples > 0 && <div className='text-xs font-normal text-amber-600'>{row.unverified_samples} biên lai chưa đủ đối soát mức thu</div>}
+                    {!row.observed_multiplier && row.unverified_samples > 0 && <div className='text-xs font-normal text-amber-600'>{t('{{count}} receipts not yet enough to reconcile the charge level', { count: row.unverified_samples })}</div>}
                   </div>
                 ),
               },
               {
                 id: 'price',
-                header: t('credit / 1M input thực'),
-                cell: (row) => row.effective_input_vnd_per_1m ? formatXPikiVND(row.effective_input_vnd_per_1m, false) : t('Chưa xác minh'),
+                header: t('actual credit / 1M input'),
+                cell: (row) => row.effective_input_vnd_per_1m ? formatXPikiVND(row.effective_input_vnd_per_1m, false) : t('Not verified'),
                 cellClassName: 'tabular-nums',
               },
               {
                 id: 'output_price',
-                header: t('credit / 1M output thực'),
-                cell: (row) => row.effective_output_vnd_per_1m ? formatXPikiVND(row.effective_output_vnd_per_1m, false) : t('Chưa xác minh'),
+                header: t('actual credit / 1M output'),
+                cell: (row) => row.effective_output_vnd_per_1m ? formatXPikiVND(row.effective_output_vnd_per_1m, false) : t('Not verified'),
                 cellClassName: 'tabular-nums',
               },
               {
                 id: 'multiplier',
-                header: t('Hệ số đã bao gồm'),
+                header: t('Included multiplier'),
                 cell: (row) => row.observed_multiplier ? `×${row.observed_multiplier}` : '—',
                 cellClassName: 'tabular-nums font-medium',
               },
               {
                 id: 'cache_read_price', header: t('credit / 1M cache-read token'),
-                cell: (row) => row.effective_cache_read_vnd_per_1m ? formatXPikiVND(row.effective_cache_read_vnd_per_1m, false) : t('Chưa xác minh'), cellClassName: 'tabular-nums',
+                cell: (row) => row.effective_cache_read_vnd_per_1m ? formatXPikiVND(row.effective_cache_read_vnd_per_1m, false) : t('Not verified'), cellClassName: 'tabular-nums',
               },
               {
                 id: 'cache_write_price', header: t('credit / 1M cache-write token'),
-                cell: (row) => row.cache_write_vnd_per_1m ? formatXPikiVND(row.cache_write_vnd_per_1m, false) : t('Chưa xác định'), cellClassName: 'tabular-nums',
+                cell: (row) => row.cache_write_vnd_per_1m ? formatXPikiVND(row.cache_write_vnd_per_1m, false) : t('Not determined'), cellClassName: 'tabular-nums',
               },
               {
-                id: 'verification', header: t('Mẫu đối soát'),
+                id: 'verification', header: t('Reconciliation samples'),
                 cell: (row) => row.verified_samples > 0 ? (
                   <span title={row.verified_at}>{row.verified_samples} request · {row.verified_at ? new Date(row.verified_at).toLocaleString('vi-VN') : ''}</span>
                 ) : '—',
@@ -914,7 +918,7 @@ function ManageKeysDialog(props: {
           <DialogTitle>{t('Manage Keys')}</DialogTitle>
           <DialogDescription>
             {t(
-              'Quản lý danh sách Key hệ thống từ Kênh hoặc thêm API Key tùy chỉnh.'
+              t('Manage system keys from Channels or add custom API keys.')
             )}
           </DialogDescription>
         </DialogHeader>
@@ -967,11 +971,11 @@ function ManageKeysDialog(props: {
               <div className='bg-primary/5 border border-primary/20 rounded-md p-3 text-xs space-y-1.5 text-muted-foreground'>
                 <div className='font-semibold text-foreground flex items-center gap-1.5'>
                   <Radio className='size-3.5 text-primary' />
-                  <span>{t('Đồng bộ tự động với trang Kênh')}</span>
+                  <span>{t('Automatically synced with Channels')}</span>
                 </div>
                 <p>
                   {t(
-                    'Các key này được cấu hình trực tiếp từ trang Kênh (Channels). Khi bạn thêm, sửa hoặc xóa kênh/key bên Kênh, hệ thống sẽ tự động đồng bộ ngay khi bấm Kiểm tra quota.'
+                    t('These keys are configured directly on the Channels page. When you add, edit or delete channels or keys there, the system syncs automatically when you click Check quota.')
                   )}
                 </p>
                 <div className='pt-1'>
@@ -979,7 +983,7 @@ function ManageKeysDialog(props: {
                     href='/channels'
                     className='inline-flex items-center gap-1 text-primary hover:underline font-medium text-xs'
                   >
-                    <span>{t('Đi đến trang Quản lý Kênh để thêm/xóa Key')}</span>
+                    <span>{t('Go to Channels to add or remove keys')}</span>
                     <ExternalLink className='size-3' />
                   </a>
                 </div>
@@ -987,19 +991,19 @@ function ManageKeysDialog(props: {
 
               <div className='space-y-2'>
                 <div className='flex items-center justify-between text-xs font-semibold text-muted-foreground'>
-                  <span>{t('Danh sách Key hiện có trong Kênh')}</span>
+                  <span>{t('Keys currently in Channels')}</span>
                   <a
                     href='/channels'
                     className='text-primary hover:underline flex items-center gap-1 font-normal text-[11px]'
                   >
                     <Plus className='size-3' />
-                    <span>{t('Thêm Kênh mới')}</span>
+                    <span>{t('Add new channel')}</span>
                   </a>
                 </div>
 
                 {channelKeys.length === 0 ? (
                   <p className='text-xs text-muted-foreground italic text-center py-4'>
-                    {t('Chưa có kênh XPiki nào được cấu hình trong hệ thống.')}
+                    {t('No XPiki channel is configured in the system.')}
                   </p>
                 ) : (
                   <div className='space-y-1.5 max-h-56 overflow-y-auto pr-1'>
@@ -1040,9 +1044,9 @@ function ManageKeysDialog(props: {
                           <a
                             href='/channels'
                             className='inline-flex items-center gap-1 text-[11px] text-primary hover:underline shrink-0'
-                            title={t('Xem kênh bên /channels')}
+                            title={t('View channel on /channels')}
                           >
-                            <span>{t('Sửa')}</span>
+                            <span>{t('Edit')}</span>
                             <ExternalLink className='size-3' />
                           </a>
                         </div>
@@ -1058,7 +1062,7 @@ function ManageKeysDialog(props: {
             <div className='space-y-3'>
               <p className='text-xs text-muted-foreground'>
                 {t(
-                  'Thêm API key tùy chỉnh để theo dõi quota trực tiếp mà không cần cấu hình Kênh.'
+                  t('Add a custom API key to track quota directly without configuring a channel.')
                 )}
               </p>
               <div>
@@ -1066,7 +1070,7 @@ function ManageKeysDialog(props: {
                   {t('Key Name / Note')}
                 </label>
                 <Input
-                  placeholder='vd: Key dự phòng...'
+                  placeholder={t('e.g. Backup key...')}
                   value={singleLabel}
                   onChange={(e) => setSingleLabel(e.target.value)}
                 />
@@ -1104,7 +1108,7 @@ function ManageKeysDialog(props: {
             <div className='space-y-3'>
               <p className='text-xs text-muted-foreground'>
                 {t(
-                  'Dán nhiều API key (mỗi key một dòng, hoặc Tên: sk-...).'
+                  t('Paste multiple API keys (one per line, or Name: sk-...).')
                 )}
               </p>
               <div>
@@ -1311,7 +1315,7 @@ function XPikiLogsCard(props: { customKeys: CustomKeyItem[] }) {
 
   const selectedKeyLabel =
     keyFilter === 'all'
-      ? t('Tất cả khóa API')
+      ? t('All API keys')
       : keyOptions.find((o) => o.value === keyFilter)?.label ||
         keyFilter
 
@@ -1366,7 +1370,7 @@ function XPikiLogsCard(props: { customKeys: CustomKeyItem[] }) {
           className='text-xs font-semibold px-2 py-0.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
         >
           <KeyRound className='size-3 mr-1 inline' />
-          {row.token_id ? `#${row.token_id} · ${row.token_name || t('Khóa không đặt tên')}` : row.token_name || t('Log cũ không lưu ID khóa')}
+          {row.token_id ? `#${row.token_id} · ${row.token_name || t('Unnamed key')}` : row.token_name || t('Old log without key ID')}
         </Badge>
       ),
     },
@@ -1405,7 +1409,7 @@ function XPikiLogsCard(props: { customKeys: CustomKeyItem[] }) {
     {
       id: 'username',
       header: t('User'),
-      cell: (row) => <span className='text-xs font-medium'>{row.username || t('Không xác định')}</span>,
+      cell: (row) => <span className='text-xs font-medium'>{row.username || t('Unknown')}</span>,
     },
     {
       id: 'status',
@@ -1567,19 +1571,19 @@ function XPikiLogsCard(props: { customKeys: CustomKeyItem[] }) {
     },
     {
       id: 'cost',
-      header: t('Đối soát giá vốn'),
+      header: t('Cost reconciliation'),
       cell: (row) => (
         <div className='flex flex-col text-xs items-start tabular-nums'>
           {row.token_cost?.status === 'reconciled' ? (
             <span className='font-semibold text-emerald-600 dark:text-emerald-400'>
-              {t('Khớp token')}{row.token_cost.multiplier ? ` · ×${row.token_cost.multiplier}` : ''}
+              {t('Token match')}{row.token_cost.multiplier ? ` · ×${row.token_cost.multiplier}` : ''}
             </span>
           ) : row.token_cost?.status === 'confirmed_zero' ? (
-            <span className='text-muted-foreground'>{t('XPiki không thu phí')}</span>
+            <span className='text-muted-foreground'>{t('XPiki does not charge a fee')}</span>
           ) : row.quota_source === 'not_xpiki' ? (
-            <span className='text-muted-foreground text-xs'>{t('Không áp dụng')}</span>
+            <span className='text-muted-foreground text-xs'>{t('Not applicable')}</span>
           ) : (
-            <span className='text-amber-600 text-xs' title={row.token_cost?.warning}>{t('Chưa xác minh')}</span>
+            <span className='text-amber-600 text-xs' title={row.token_cost?.warning}>{t('Not verified')}</span>
           )}
         </div>
       ),
@@ -1587,20 +1591,20 @@ function XPikiLogsCard(props: { customKeys: CustomKeyItem[] }) {
     },
     {
       id: 'cost_vnd',
-      header: t('Giá vốn (credit)'),
+      header: t('Cost (credit)'),
       cell: (row) => (
         <div className='text-xs tabular-nums min-w-[140px]'>
-          <span className='font-semibold text-blue-600 dark:text-blue-400' title={row.attempts?.length ? t('Tổng giá vốn XPiki của các lượt trong request theo quy ước 1.000 VNĐ = 1 credit.') : tokenCostExplanation(row.token_cost)}>
+          <span className='font-semibold text-blue-600 dark:text-blue-400' title={row.attempts?.length ? t('Total XPiki cost of the attempts in this request, using the convention 1,000 VND = 1 credit.') : tokenCostExplanation(row.token_cost)}>
               {formatLogCost(row.token_cost?.total_vnd)}
           </span>
           {(row.token_cost?.status === 'reconciled' || !!row.attempts?.length) && (
             <details className='mt-1 text-muted-foreground'>
-              <summary className='cursor-pointer'>{t('Chi tiết theo token')}</summary>
+              <summary className='cursor-pointer'>{t('Details by token')}</summary>
               <div className='whitespace-pre-line mt-1 min-w-[320px]'>
                 {row.attempts?.length
                   ? row.attempts.map((attempt, index) => (
                     <div key={attempt.log_id || index} className='mb-2'>
-                      #{attempt.channel_id} {attempt.channel_name}: {attempt.quota_source === 'not_xpiki' ? t('Không áp dụng giá vốn XPiki') : formatLogCost(attempt.token_cost?.total_vnd)}
+                      #{attempt.channel_id} {attempt.channel_name}: {attempt.quota_source === 'not_xpiki' ? t('XPiki cost does not apply') : formatLogCost(attempt.token_cost?.total_vnd)}
                       {attempt.quota_source !== 'not_xpiki' && <div>{tokenCostExplanation(attempt.token_cost)}</div>}
                     </div>
                   ))
@@ -1630,15 +1634,15 @@ function XPikiLogsCard(props: { customKeys: CustomKeyItem[] }) {
               </div>
               <div>
                 <CardTitle className='text-base font-semibold'>
-                  {t('Nhật ký yêu cầu LLM Gateway')}
+                  {t('LLM Gateway request logs')}
                 </CardTitle>
                 <CardDescription className='text-xs'>
-                  <span className='block font-medium'>{t('Tự tải lại mỗi 10 giây khi mở bảng log; có thể bấm Tải lại log ngay.')}</span>
-                  {t('Một dòng cho mỗi request khách gửi vào LLM Gateway: khóa, người dùng, model, kênh xử lý cuối và chuỗi fallback. Input/output là tổng token, cache hiển thị riêng bên dưới.')}
-          <span className='block'>{t('Giá vốn chỉ tính các lượt XPiki, đối soát theo token và biên lai; 9router không dùng giá XPiki. Hiển thị quy đổi 1.000 VNĐ = 1 credit, số gốc được giữ nguyên để tính tổng.')}</span>
+                  <span className='block font-medium'>{t('Reloads automatically every 10 seconds while the log table is open; click Reload logs to refresh now.')}</span>
+                  {t('One row per customer request sent to LLM Gateway: key, user, model, final channel and fallback chain. Input/output are total tokens; cache is shown separately below.')}
+          <span className='block'>{t('Cost counts only XPiki attempts, reconciled by tokens and receipts; 9router does not use XPiki prices. Shown at 1,000 VND = 1 credit; original values are kept for totals.')}</span>
                   {!!logsData?.quota_errors?.length && (
                     <span className='block text-amber-600'>
-                      {t('Dữ liệu chưa tải/ghép đầy đủ:')}{' '}
+                      {t('Data not fully loaded or merged:')}{' '}
                       {logsData.quota_errors.join('; ')}
                     </span>
                   )}
@@ -1661,7 +1665,7 @@ function XPikiLogsCard(props: { customKeys: CustomKeyItem[] }) {
                   <RefreshCw
                     className={cn('size-3.5', isFetching && 'animate-spin')}
                   />
-                  <span>{t('Tải lại log')}</span>
+                  <span>{t('Reload logs')}</span>
                 </Button>
               )}
 
@@ -1707,16 +1711,16 @@ function XPikiLogsCard(props: { customKeys: CustomKeyItem[] }) {
                   <SelectTrigger
                     size='sm'
                     className='w-full'
-                    aria-label={t('Số dòng/trang')}
+                    aria-label={t('Rows per page')}
                   >
                     <SelectValue>
-                      {pageSize} {t('dòng/trang')}
+                      {pageSize} {t('rows/page')}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {[20, 50, 100].map((size) => (
                       <SelectItem key={size} value={String(size)}>
-                        {size} {t('dòng/trang')}
+                        {size} {t('rows/page')}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1733,13 +1737,13 @@ function XPikiLogsCard(props: { customKeys: CustomKeyItem[] }) {
                     }
                   }}
                 >
-                  <SelectTrigger size='sm' className='w-full' aria-label={t('Lọc khóa API')}>
+                  <SelectTrigger size='sm' className='w-full' aria-label={t('Filter API keys')}>
                     <SelectValue>{selectedKeyLabel}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>
                       <SelectItem value='all'>
-                        {t('Tất cả khóa API')}
+                        {t('All API keys')}
                       </SelectItem>
                       {keyOptions
                         .filter((opt) => opt.value.startsWith('token_id:'))
@@ -1757,11 +1761,11 @@ function XPikiLogsCard(props: { customKeys: CustomKeyItem[] }) {
                 <Select value={channelFilter} onValueChange={(value) => {
                   if (typeof value === 'string') { setChannelFilter(value); setPage(1) }
                 }}>
-                  <SelectTrigger size='sm' className='w-full' aria-label={t('Lọc kênh')}>
-                    <SelectValue>{channelFilter === 'all' ? t('Tất cả kênh') : keyOptions.find((option) => option.value === channelFilter)?.label || channelFilter}</SelectValue>
+                  <SelectTrigger size='sm' className='w-full' aria-label={t('Filter channels')}>
+                    <SelectValue>{channelFilter === 'all' ? t('All channels') : keyOptions.find((option) => option.value === channelFilter)?.label || channelFilter}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value='all'>{t('Tất cả kênh')}</SelectItem>
+                    <SelectItem value='all'>{t('All channels')}</SelectItem>
                     {keyOptions.filter((option) => option.value.startsWith('channel:')).map((option) => (
                       <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
                     ))}
@@ -1774,7 +1778,7 @@ function XPikiLogsCard(props: { customKeys: CustomKeyItem[] }) {
                   options={modelOptions.map((model) => ({ value: model, label: model }))}
                   selected={modelFilter === 'all' ? [] : modelFilter.split(',')}
                   onChange={(values) => { setModelFilter(values.length ? values.join(',') : 'all'); setPage(1) }}
-                  placeholder={t('Chọn model')}
+                  placeholder={t('Select model')}
                   maxVisibleChips={2}
                 />
               </div>
@@ -1784,7 +1788,7 @@ function XPikiLogsCard(props: { customKeys: CustomKeyItem[] }) {
                   options={userOptions.map((user) => ({ value: user, label: user }))}
                   selected={userFilter}
                   onChange={(values) => { setUserFilter(values); setPage(1) }}
-                  placeholder={t('Chọn người dùng')}
+                  placeholder={t('Select user')}
                   maxVisibleChips={2}
                 />
               </div>
@@ -1878,7 +1882,7 @@ function XPikiLogsCard(props: { customKeys: CustomKeyItem[] }) {
                     type='text'
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
-                    placeholder={t('Request ID, model, token, người dùng, nội dung lỗi...')}
+                    placeholder={t('Request ID, model, token, user, error content...')}
                     className='h-8 pl-8 text-xs'
                   />
                 </div>
@@ -1915,15 +1919,15 @@ function XPikiLogsCard(props: { customKeys: CustomKeyItem[] }) {
         <>
           {logsData?.token_cost_summary && (
             <div className='px-4 py-3 text-xs border-b space-y-1'>
-              <div>{t('Tổng giá vốn đã đối soát (trang này)')}: <strong>{formatLogCost(logsData.token_cost_summary.total_vnd)}</strong> · {logsData.token_cost_summary.known_requests} request</div>
-              {logsData.token_cost_summary.unknown_requests > 0 && <div className='text-amber-600'>{logsData.token_cost_summary.unknown_requests} {t('request chưa xác minh, chưa được cộng; tổng chưa đầy đủ.')}</div>}
-              <div className='text-muted-foreground'>{t('Lời/lỗ = doanh thu thực nhận từ trang bán − giá vốn của tất cả lượt gọi. Chưa có doanh thu thực nhận tại đây; tiền trừ ví LLM Gateway không phải doanh thu bán.')}</div>
+              <div>{t('Reconciled total cost (this page)')}: <strong>{formatLogCost(logsData.token_cost_summary.total_vnd)}</strong> · {logsData.token_cost_summary.known_requests} request</div>
+              {logsData.token_cost_summary.unknown_requests > 0 && <div className='text-amber-600'>{logsData.token_cost_summary.unknown_requests} {t('requests not yet verified and not included; the total is incomplete.')}</div>}
+              <div className='text-muted-foreground'>{t('Profit/loss = actual revenue received from the sales page minus the cost of all calls. No actual revenue is available here; wallet deductions in LLM Gateway are not sales revenue.')}</div>
             </div>
           )}
           {logsError && (
             <div className='px-4 py-3'>
               <ErrorState
-                title={t('Không tải được nhật ký yêu cầu')}
+                title={t('Could not load request logs')}
                 onRetry={() => refetch()}
               />
             </div>
@@ -1946,9 +1950,9 @@ function XPikiLogsCard(props: { customKeys: CustomKeyItem[] }) {
               emptyContent={
                 <div className='py-12 text-center text-muted-foreground text-sm'>
                   {!logsData
-                    ? t('Đang tải log cho điều kiện này…')
+                    ? t('Loading logs for these filters…')
                     : logsData.incomplete
-                    ? t('Chưa đối soát đủ giá vốn; dữ liệu request lấy từ LLM Gateway.')
+                    ? t('Cost not fully reconciled; request data comes from LLM Gateway.')
                     : t('No request logs found')}
                 </div>
               }
@@ -1959,7 +1963,7 @@ function XPikiLogsCard(props: { customKeys: CustomKeyItem[] }) {
             <div className='text-xs text-muted-foreground'>
               {logsData?.total !== undefined && logsData.total >= 0 ? (
                 <span>
-                  {t('Tổng {{count}} request khách', { count: logsData.total })}
+                  {t('Total {{count}} customer requests', { count: logsData.total })}
                 </span>
               ) : (
                 <span>{t('Page {{page}}', { page })}</span>
@@ -2109,7 +2113,7 @@ export function XPikiQuotaPage() {
         <SectionPageLayout.Title>
           <div className='flex flex-col items-start gap-0.5'>
             <span>{t('Quota Check')}</span>
-            <span className='text-[13px] font-normal text-muted-foreground'>Cập nhật {Math.max(cachedData?.timestamp ?? 0, kiroCachedAt ?? 0) ? new Date(Math.max(cachedData?.timestamp ?? 0, kiroCachedAt ?? 0)).toLocaleTimeString('vi-VN') : '—'} · {Math.max(cachedData?.timestamp ?? 0, kiroCachedAt ?? 0) ? new Date(Math.max(cachedData?.timestamp ?? 0, kiroCachedAt ?? 0)).toLocaleDateString('vi-VN') : '—'} · dữ liệu đã lưu</span>
+            <span className='text-[13px] font-normal text-muted-foreground'>{t('Updated {{time}} · {{date}} · saved data', { time: Math.max(cachedData?.timestamp ?? 0, kiroCachedAt ?? 0) ? new Date(Math.max(cachedData?.timestamp ?? 0, kiroCachedAt ?? 0)).toLocaleTimeString('vi-VN') : '—', date: Math.max(cachedData?.timestamp ?? 0, kiroCachedAt ?? 0) ? new Date(Math.max(cachedData?.timestamp ?? 0, kiroCachedAt ?? 0)).toLocaleDateString('vi-VN') : '—' })}</span>
             {customKeys.length > 0 && (
               <Badge variant='outline' className='text-xs font-normal'>
                 +{customKeys.length} {t('Custom Keys')}
@@ -2137,7 +2141,7 @@ export function XPikiQuotaPage() {
               <RefreshCw
                 className={cn('size-4', mutation.isPending && 'animate-spin')}
               />
-              <span>{mutation.isPending ? t('Checking...') : 'Kiểm tra tất cả'}</span>
+              <span>{mutation.isPending ? t('Checking...') : t('Check all')}</span>
             </Button>
           </div>
         </SectionPageLayout.Actions>
@@ -2192,7 +2196,7 @@ export function XPikiRequestLogsPage() {
   const [customKeys] = useState<CustomKeyItem[]>([])
   return (
     <SectionPageLayout>
-      <SectionPageLayout.Title>{t('Nhật ký yêu cầu')}</SectionPageLayout.Title>
+      <SectionPageLayout.Title>{t('Request logs')}</SectionPageLayout.Title>
       <SectionPageLayout.Content>
         <XPikiLogsCard customKeys={customKeys} />
       </SectionPageLayout.Content>

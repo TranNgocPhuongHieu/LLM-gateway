@@ -21,6 +21,10 @@ import { api } from '@/lib/api'
 import type {
   FlowQuotaDataItem,
   QuotaDataItem,
+  SelfApiResponse,
+  SelfBreakdownData,
+  SelfBreakdownGroupBy,
+  SelfErrorSummaryData,
   UptimeGroupResult,
 } from './types'
 
@@ -46,6 +50,31 @@ export async function getUserQuotaDates(
   const endpoint = isAdmin ? '/api/data' : '/api/data/self'
   const res = await api.get<{ success: boolean; data: QuotaDataItem[] }>(
     endpoint,
+    { params }
+  )
+  return res.data
+}
+
+// Own usage split by model or API key for a time range (span <= 31 days).
+export async function getSelfUsageBreakdown(params: {
+  start_timestamp: number
+  end_timestamp: number
+  group_by: SelfBreakdownGroupBy
+}) {
+  const res = await api.get<SelfApiResponse<SelfBreakdownData>>(
+    '/api/data/self/breakdown',
+    { params }
+  )
+  return res.data
+}
+
+// Own error logs grouped by cause (span <= 31 days). Raw content is never returned.
+export async function getSelfErrorSummary(params: {
+  start_timestamp: number
+  end_timestamp: number
+}) {
+  const res = await api.get<SelfApiResponse<SelfErrorSummaryData>>(
+    '/api/log/self/error_summary',
     { params }
   )
   return res.data

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"strings"
 	"time"
 
 	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
@@ -31,13 +32,19 @@ type TopUp struct {
 }
 
 type TopUpSummary struct {
-	Total     int64 `json:"total"`
-	Pending   int64 `json:"pending"`
-	Success   int64 `json:"success"`
-	Cancelled int64 `json:"cancelled"`
+	Total        int64   `json:"total"`
+	Pending      int64   `json:"pending"`
+	Success      int64   `json:"success"`
+	Cancelled    int64   `json:"cancelled"`
+	Processing   int64   `json:"processing"`
+	NeedsReview  int64   `json:"needs_review"`
+	CollectedVND float64 `json:"collected_vnd"`
+	TodayVND     float64 `json:"today_vnd"`
 }
 
-func GetTopUpSummary() (TopUpSummary, error) {
+// GetTopUpSummary returns all-time admin counts and VND totals. todayStart and
+// todayEnd bound the caller's local day in unix seconds (end exclusive).
+func GetTopUpSummary(todayStart, todayEnd int64) (TopUpSummary, error) {
 	var summary TopUpSummary
 	if err := DB.Model(&TopUp{}).Count(&summary.Total).Error; err != nil {
 		return summary, err
@@ -51,7 +58,39 @@ func GetTopUpSummary() (TopUpSummary, error) {
 	if err := DB.Model(&TopUp{}).Where("status = ?", common.TopUpStatusExpired).Count(&summary.Cancelled).Error; err != nil {
 		return summary, err
 	}
+	summary.Processing = summary.Pending
+	if err := scopeAdminNeedsReview(DB.Model(&TopUp{})).Count(&summary.NeedsReview).Error; err != nil {
+		return summary, err
+	}
+	collected, today, err := sumSuccessfulTopUpVND(todayStart, todayEnd)
+	if err != nil {
+		return summary, err
+	}
+	summary.CollectedVND = collected
+	summary.TodayVND = today
 	return summary, nil
+}
+
+// topUpVNDExpr is the VND amount the admin UI shows for a successful top-up:
+// the SePay amount when a SePay order exists, otherwise the stored money.
+const topUpVNDExpr = "COALESCE(sepay_payments.amount_vnd, top_ups.money)"
+
+func sumSuccessfulTopUpVND(todayStart, todayEnd int64) (collected float64, today float64, err error) {
+	var row struct {
+		Collected float64
+		Today     float64
+	}
+	err = DB.Model(&TopUp{}).
+		Joins("LEFT JOIN sepay_payments ON sepay_payments.top_up_id = top_ups.id").
+		Where("top_ups.status = ?", common.TopUpStatusSuccess).
+		Select("COALESCE(SUM("+topUpVNDExpr+"), 0) AS collected, "+
+			"COALESCE(SUM(CASE WHEN top_ups.create_time >= ? AND top_ups.create_time < ? THEN "+topUpVNDExpr+" ELSE 0 END), 0) AS today",
+			todayStart, todayEnd).
+		Scan(&row).Error
+	if err != nil {
+		return 0, 0, err
+	}
+	return row.Collected, row.Today, nil
 }
 
 // EnrichTopUpUsernames fills usernames with one bounded query for admin lists.
@@ -389,34 +428,6 @@ func GetUserTopUps(userId int, pageInfo *common.PageInfo) (topups []*TopUp, tota
 }
 
 // GetAllTopUps 获取全平台的充值记录（管理员使用，不限制时间窗口）
-func GetAllTopUps(pageInfo *common.PageInfo) (topups []*TopUp, total int64, err error) {
-	tx := DB.Begin()
-	if tx.Error != nil {
-		return nil, 0, tx.Error
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-
-	if err = tx.Model(&TopUp{}).Count(&total).Error; err != nil {
-		tx.Rollback()
-		return nil, 0, err
-	}
-
-	if err = tx.Order("id desc").Limit(pageInfo.GetPageSize()).Offset(pageInfo.GetStartIdx()).Find(&topups).Error; err != nil {
-		tx.Rollback()
-		return nil, 0, err
-	}
-
-	if err = tx.Commit().Error; err != nil {
-		return nil, 0, err
-	}
-
-	return topups, total, nil
-}
-
 // searchTopUpCountHardLimit 搜索充值记录时 COUNT 的安全上限，
 // 防止对超大表执行无界 COUNT 触发 DoS。
 const searchTopUpCountHardLimit = 10000
@@ -461,44 +472,103 @@ func SearchUserTopUps(userId int, keyword string, pageInfo *common.PageInfo) (to
 	return topups, total, nil
 }
 
-// SearchAllTopUps 按订单号搜索全平台充值记录（管理员使用，不限制时间窗口）
-func SearchAllTopUps(keyword string, pageInfo *common.PageInfo) (topups []*TopUp, total int64, err error) {
-	tx := DB.Begin()
-	if tx.Error != nil {
-		return nil, 0, tx.Error
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
+const (
+	AdminTopUpStatusSuccess     = "success"
+	AdminTopUpStatusExpired     = "expired"
+	AdminTopUpStatusNeedsReview = "needs_review"
+	AdminTopUpMethodSepay       = PaymentProviderSepay
+	AdminTopUpMethodBinance     = "binance"
+)
 
-	query := tx.Model(&TopUp{})
-	if keyword != "" {
-		pattern, perr := sanitizeLikePattern(keyword)
-		if perr != nil {
-			tx.Rollback()
-			return nil, 0, perr
-		}
-		query = query.Where("trade_no LIKE ? ESCAPE '!'", pattern)
+// adminTopUpBinanceReviewStatuses mirrors the admin UI rule (needsReview):
+// USDT orders in these states need manual action.
+var adminTopUpBinanceReviewStatuses = []string{"review", "partial", "matched", "expired"}
+
+// scopeAdminNeedsReview keeps unsuccessful top-ups whose USDT order is in a
+// review state or whose SePay payment is flagged for manual review.
+func scopeAdminNeedsReview(db *gorm.DB) *gorm.DB {
+	return db.Where(
+		"top_ups.status <> ? AND (EXISTS (SELECT 1 FROM binance_top_ups WHERE binance_top_ups.top_up_id = top_ups.id AND binance_top_ups.status IN ?) OR EXISTS (SELECT 1 FROM sepay_payments sp_review WHERE sp_review.top_up_id = top_ups.id AND sp_review.verification_status = ?))",
+		common.TopUpStatusSuccess, adminTopUpBinanceReviewStatuses, SepayVerificationReview,
+	)
+}
+
+// escapeAdminLikeLiteral escapes LIKE wildcards so keyword text matches literally ('!' is the ESCAPE character).
+func escapeAdminLikeLiteral(input string) string {
+	return strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(input)
+}
+
+// scopeAdminKeyword matches a case-insensitive substring of the order ID or of
+// the matched Binance deposit TxID.
+func scopeAdminKeyword(db *gorm.DB, keyword string) *gorm.DB {
+	pattern := "%" + escapeAdminLikeLiteral(strings.ToLower(keyword)) + "%"
+	txOrders := DB.Model(&BinanceTopUp{}).
+		Select("binance_top_ups.top_up_id").
+		Joins("JOIN binance_deposits ON binance_deposits.id = binance_top_ups.matched_deposit_id").
+		Where("LOWER(binance_deposits.tx_id) LIKE ? ESCAPE '!'", pattern)
+	return db.Where("(LOWER(top_ups.trade_no) LIKE ? ESCAPE '!' OR top_ups.id IN (?))", pattern, txOrders)
+}
+
+// AdminTopUpFilter holds the optional server-side filters of the admin top-up list.
+type AdminTopUpFilter struct {
+	Keyword       string
+	Status        string // "", AdminTopUpStatusSuccess, AdminTopUpStatusExpired or AdminTopUpStatusNeedsReview
+	PaymentMethod string // "", AdminTopUpMethodSepay or AdminTopUpMethodBinance
+	StartTime     int64  // inclusive create_time lower bound; 0 = unbounded
+	EndTime       int64  // exclusive create_time upper bound; 0 = unbounded
+}
+
+// ListAdminTopUps returns one page of platform-wide top-ups matching filter, newest first.
+func ListAdminTopUps(filter AdminTopUpFilter, pageInfo *common.PageInfo) (topups []*TopUp, total int64, err error) {
+	query := DB.Model(&TopUp{})
+	if filter.Keyword != "" {
+		query = scopeAdminKeyword(query, filter.Keyword)
+	}
+	switch filter.Status {
+	case "":
+	case AdminTopUpStatusSuccess:
+		query = query.Where("top_ups.status = ?", common.TopUpStatusSuccess)
+	case AdminTopUpStatusExpired:
+		query = query.Where("top_ups.status = ?", common.TopUpStatusExpired)
+	case AdminTopUpStatusNeedsReview:
+		query = scopeAdminNeedsReview(query)
+	default:
+		return nil, 0, fmt.Errorf("unsupported top-up status filter: %q", filter.Status)
+	}
+	switch filter.PaymentMethod {
+	case "":
+	case AdminTopUpMethodSepay:
+		query = query.Where("top_ups.payment_provider = ?", PaymentProviderSepay)
+	case AdminTopUpMethodBinance:
+		query = query.Where("top_ups.id IN (?)", DB.Model(&BinanceTopUp{}).Select("top_up_id"))
+	default:
+		return nil, 0, fmt.Errorf("unsupported top-up payment method filter: %q", filter.PaymentMethod)
+	}
+	if filter.StartTime > 0 {
+		query = query.Where("top_ups.create_time >= ?", filter.StartTime)
+	}
+	if filter.EndTime > 0 {
+		query = query.Where("top_ups.create_time < ?", filter.EndTime)
 	}
 
-	if err = query.Limit(searchTopUpCountHardLimit).Count(&total).Error; err != nil {
-		tx.Rollback()
-		common.SysError("failed to count search topups: " + err.Error())
-		return nil, 0, errors.New("搜索充值记录失败")
+	pageQuery := query.Session(&gorm.Session{})
+	if err = query.Count(&total).Error; err != nil {
+		return nil, 0, err
 	}
-
-	if err = query.Order("id desc").Limit(pageInfo.GetPageSize()).Offset(pageInfo.GetStartIdx()).Find(&topups).Error; err != nil {
-		tx.Rollback()
-		common.SysError("failed to search topups: " + err.Error())
-		return nil, 0, errors.New("搜索充值记录失败")
-	}
-
-	if err = tx.Commit().Error; err != nil {
+	if err = pageQuery.Order("top_ups.id desc").Limit(pageInfo.GetPageSize()).Offset(pageInfo.GetStartIdx()).Find(&topups).Error; err != nil {
 		return nil, 0, err
 	}
 	return topups, total, nil
+}
+
+// GetAllTopUps returns an unfiltered page of platform-wide top-ups.
+func GetAllTopUps(pageInfo *common.PageInfo) (topups []*TopUp, total int64, err error) {
+	return ListAdminTopUps(AdminTopUpFilter{}, pageInfo)
+}
+
+// SearchAllTopUps searches platform-wide top-ups by order ID or Binance TxID.
+func SearchAllTopUps(keyword string, pageInfo *common.PageInfo) (topups []*TopUp, total int64, err error) {
+	return ListAdminTopUps(AdminTopUpFilter{Keyword: keyword}, pageInfo)
 }
 
 // ManualCompleteTopUp 管理员手动完成订单并给用户充值

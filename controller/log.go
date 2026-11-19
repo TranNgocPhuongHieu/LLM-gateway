@@ -198,3 +198,22 @@ func GetLogCosts(c *gin.Context) {
 	}
 	common.ApiSuccess(c, result)
 }
+
+// GetUserErrorSummary returns categorized counts of the caller's own terminal
+// error logs. Raw error content is never returned.
+func GetUserErrorSummary(c *gin.Context) {
+	userId := c.GetInt("id")
+	startTimestamp, endTimestamp, ok := parseFlowQuotaTimeRange(c)
+	if !ok {
+		return
+	}
+	if !checkSelfQuerySpan(c, startTimestamp, endTimestamp) {
+		return
+	}
+	summary, err := model.GetUserErrorSummary(userId, startTimestamp, endTimestamp)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, summary)
+}

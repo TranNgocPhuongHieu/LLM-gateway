@@ -750,7 +750,7 @@ export function useCommonLogsColumns(
     },
     {
       accessorKey: 'prompt_tokens',
-      header: 'Tokens',
+      header: t('Token count'),
       cell: ({ row }) => {
         const log = row.original
         if (!isDisplayableLogType(log.type)) return null
@@ -797,7 +797,7 @@ export function useCommonLogsColumns(
     },
     {
       accessorKey: 'quota',
-      header: t('Phí trừ ví'),
+      header: t('Wallet charge'),
       cell: ({ row }) => {
         const log = row.original
         if (!isDisplayableLogType(log.type)) return null
@@ -805,7 +805,7 @@ export function useCommonLogsColumns(
         return (
           <span
             className='font-semibold text-emerald-600 dark:text-emerald-400 text-xs tabular-nums'
-            title={t('Phí trừ ví LLM Gateway, không phải giá vốn XPiki')}
+            title={t('Amount deducted from your LLM Gateway wallet for this request')}
           >
             {formatLogQuota(log.quota)}
           </span>

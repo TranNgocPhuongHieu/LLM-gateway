@@ -8,7 +8,7 @@ import { RefreshCw } from "lucide-react";
 import { getAllLogs, getUserLogs } from "@/features/usage-logs/api";
 import { usageLogSchema } from "@/features/usage-logs/data/schema";
 import { getSelf, getUserModels } from "@/lib/api";
-import { formatTimestampToDate } from "@/lib/format";
+import { formatLogQuota, formatTimestampToDate } from "@/lib/format";
 import { ROLE } from "@/lib/roles";
 import { requireServerSuccess } from "@/lib/server-error-message";
 import { cn } from "@/lib/utils";
@@ -148,9 +148,9 @@ export function RecentUsagePanel() {
               onChange={(event) => setRefreshInterval(Number(event.target.value))}
               className="bg-background border-border h-9 rounded-xl border px-2 text-xs text-foreground"
             >
-              <option value={30000}>30s</option>
-              <option value={300000}>5m</option>
-              <option value={900000}>15m</option>
+              <option value={30000}>{t("Every 30 seconds")}</option>
+              <option value={300000}>{t("Every 5 minutes")}</option>
+              <option value={900000}>{t("Every 15 minutes")}</option>
             </select>
           </label>
           <button
@@ -198,9 +198,7 @@ export function RecentUsagePanel() {
           <option value="success">{t("Success")}</option>
           <option value="error">{t("Error")}</option>
         </select>
-        <span className="text-muted-foreground text-xs">
-          {t("Time")}: {t("Today")}
-        </span>
+        <span className="text-muted-foreground text-xs">{t("Most recent requests")}</span>
       </div>
 
       {(query.isError || balanceQuery.isError) && (
@@ -219,6 +217,7 @@ export function RecentUsagePanel() {
                 <th className="px-2.5 py-2 font-medium">{t("Time")}</th>
                 {isAdmin && <th className="px-2.5 py-2 font-medium">{t("User")}</th>}
                 <th className="px-2.5 py-2 font-medium">{t("Model")}</th>
+                <th className="px-2.5 py-2 text-right font-medium">{t("Cost")}</th>
                 <th className="px-2.5 py-2 font-medium">{t("Status")}</th>
               </tr>
             </thead>
@@ -242,6 +241,9 @@ export function RecentUsagePanel() {
                     )}
                     <td className="px-2.5 py-3 font-mono text-xs whitespace-nowrap">
                       {log.model_name || "—"}
+                    </td>
+                    <td className="px-2.5 py-3 text-right font-mono text-xs whitespace-nowrap tabular-nums">
+                      {formatLogQuota(log.quota)}
                     </td>
                     <td className="px-2.5 py-3 whitespace-nowrap">
                       <span
@@ -268,8 +270,10 @@ export function RecentUsagePanel() {
 
       <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
         <p className="text-muted-foreground text-xs">
-          Hiển thị {visibleLogs.length} / {Intl.NumberFormat("vi-VN").format(totalCount)} request
-          hôm nay
+          {t("Showing {{shown}} of {{total}} requests", {
+            shown: visibleLogs.length,
+            total: new Intl.NumberFormat().format(totalCount),
+          })}
         </p>
         <Link
           to="/dashboard/$section"

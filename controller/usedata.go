@@ -138,3 +138,40 @@ func GetUserFlowQuotaDates(c *gin.Context) {
 	})
 	return
 }
+
+// selfQueryMaxSpanSeconds bounds self-service aggregate queries to 31 days.
+const selfQueryMaxSpanSeconds = 2678400
+
+// checkSelfQuerySpan rejects ranges longer than selfQueryMaxSpanSeconds and
+// writes the error response when it does.
+func checkSelfQuerySpan(c *gin.Context, startTimestamp int64, endTimestamp int64) bool {
+	if endTimestamp-startTimestamp > selfQueryMaxSpanSeconds {
+		common.ApiErrorMsg(c, "time span cannot exceed 31 days")
+		return false
+	}
+	return true
+}
+
+// GetUserUsageBreakdown returns the caller's own usage totals grouped by model
+// or token. Only the caller's quota_data rows and token names are read.
+func GetUserUsageBreakdown(c *gin.Context) {
+	userId := c.GetInt("id")
+	startTimestamp, endTimestamp, ok := parseFlowQuotaTimeRange(c)
+	if !ok {
+		return
+	}
+	if !checkSelfQuerySpan(c, startTimestamp, endTimestamp) {
+		return
+	}
+	groupBy := c.Query("group_by")
+	if groupBy != "model" && groupBy != "token" {
+		common.ApiErrorMsg(c, "invalid group_by")
+		return
+	}
+	breakdown, err := model.GetUserUsageBreakdown(userId, startTimestamp, endTimestamp, groupBy)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, breakdown)
+}

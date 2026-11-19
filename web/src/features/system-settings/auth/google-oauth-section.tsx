@@ -75,9 +75,18 @@ export function GoogleOAuthSection({
     defaultValues,
   })
 
+  // Reset only when the saved values change. The registry rebuilds an equal
+  // defaultValues object on every page re-render (e.g. a settings refetch on
+  // window focus), which would otherwise wipe what the admin is typing.
+  const savedEnabled = defaultValues.GoogleOAuthEnabled
+  const savedClientId = defaultValues.GoogleClientId
   useEffect(() => {
-    form.reset(defaultValues)
-  }, [defaultValues, form])
+    form.reset({
+      GoogleOAuthEnabled: savedEnabled,
+      GoogleClientId: savedClientId,
+      GoogleClientSecret: '',
+    })
+  }, [savedEnabled, savedClientId, form])
 
   const onSubmit = async (data: GoogleOAuthFormValues) => {
     // The secret is write-only: the server never returns it, so an empty

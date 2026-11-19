@@ -123,6 +123,7 @@ func SetApiRouter(router *gin.Engine) {
 				adminRoute.GET("/topup", controller.GetAllTopUps)
 				adminRoute.POST("/topup/complete", controller.AdminCompleteTopUp)
 				adminRoute.POST("/sepay/orders/:trade_no/reconcile", controller.SepayReconcile)
+				adminRoute.POST("/sepay/orders/:trade_no/confirm", controller.SepayAdminConfirm)
 				adminRoute.POST("/binance/orders/:trade_no/reconcile", controller.BinanceAdminReconcile)
 				adminRoute.POST("/binance/orders/:trade_no/review", controller.BinanceAdminReview)
 				adminRoute.GET("/search", controller.SearchUsers)

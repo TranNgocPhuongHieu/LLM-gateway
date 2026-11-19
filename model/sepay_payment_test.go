@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
 	"github.com/glebarez/sqlite"
@@ -71,6 +72,111 @@ func TestSepayQuotaConversion(t *testing.T) {
 		if _, err := SepayQuota(10000, 500000, rate); err == nil {
 			t.Fatal("accepted bad conversion")
 		}
+	}
+}
+
+func TestConfirmSepayBankPayment(t *testing.T) {
+	sepayTestDB(t, "")
+	cfg, _ := sepayFixture(t, "gateway-original")
+	cfg.BankCode, cfg.BankAccount, cfg.BankHolder, cfg.WebhookSecret = "TPBANK", "123", "TEST", "test-bank-webhook-secret"
+	if err := SaveSepayConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	p, err := CreateSepayBankPayment(1, "manual-bank", 500000, 26000, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"bank:123", "0", "0123", "-1"} {
+		if _, err := ConfirmSepayBankPayment(p.OrderInvoiceNumber, id, "received payment", ""); err == nil {
+			t.Fatalf("accepted invalid ID %q", id)
+		}
+	}
+	if _, err := ConfirmSepayBankPayment(p.OrderInvoiceNumber, "123", strings.Repeat("x", 256), ""); err == nil {
+		t.Fatal("accepted oversized reason")
+	}
+	if err := DB.Model(p).Update("created_at", time.Now().Add(-time.Hour)).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := ExpireSepayPaymentIfNeeded(p.OrderInvoiceNumber); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 3; i++ {
+		already, err := ConfirmSepayBankPayment(p.OrderInvoiceNumber, "123", "received payment", "")
+		if err != nil || already != (i > 0) {
+			t.Fatalf("confirmation %d: %v %v", i, already, err)
+		}
+	}
+	if _, err := CompleteSepayBankPayment(p.OrderInvoiceNumber, "bank:123", ""); err != nil {
+		t.Fatal(err)
+	}
+	other, err := CreateSepayBankPayment(1, "manual-other", 500000, 26000, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ConfirmSepayBankPayment(other.OrderInvoiceNumber, "123", "received payment", ""); err == nil {
+		t.Fatal("reused transaction credited another order")
+	}
+	if _, err := ConfirmSepayBankPayment(p.OrderInvoiceNumber, "124", "received payment", ""); err == nil {
+		t.Fatal("accepted conflicting identity")
+	}
+	if err := CancelSepayPayment(other.OrderInvoiceNumber, 1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ConfirmSepayBankPayment(other.OrderInvoiceNumber, "125", "received payment", ""); err == nil {
+		t.Fatal("accepted cancelled order")
+	}
+	var user User
+	if err := DB.First(&user, 1).Error; err != nil || user.Quota != 7+p.QuotaSnapshot {
+		t.Fatalf("quota: %d, %v", user.Quota, err)
+	}
+}
+
+func TestConfirmSepayBankPaymentWithoutEventID(t *testing.T) {
+	sepayTestDB(t, "")
+	cfg, _ := sepayFixture(t, "gateway-original")
+	cfg.BankCode, cfg.BankAccount, cfg.BankHolder, cfg.WebhookSecret = "TPBANK", "123", "TEST", "test-bank-webhook-secret"
+	if err := SaveSepayConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+	var before User
+	if err := DB.First(&before, 1).Error; err != nil {
+		t.Fatal(err)
+	}
+	p, err := CreateSepayBankPayment(1, "manual-no-id", 500000, 26000, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		already, err := ConfirmSepayBankPayment(p.OrderInvoiceNumber, "", "", "")
+		if err != nil || already != (i > 0) {
+			t.Fatalf("confirmation %d: %v %v", i, already, err)
+		}
+	}
+	stored, err := GetSepayPayment(p.OrderInvoiceNumber)
+	if err != nil || stored.ProviderTransaction == nil || *stored.ProviderTransaction != "manual:"+p.OrderInvoiceNumber || stored.VerificationReason != "Manually confirmed by administrator" {
+		t.Fatalf("stored manual confirmation: %+v %v", stored, err)
+	}
+	// The delayed bank webhook must not credit again, and its event must stay bound to this order.
+	already, err := CompleteSepayBankPayment(p.OrderInvoiceNumber, "bank:555", "")
+	if err != nil || !already {
+		t.Fatalf("late webhook: %v %v", already, err)
+	}
+	if already, err := CompleteSepayBankPayment(p.OrderInvoiceNumber, "bank:555", ""); err != nil || !already {
+		t.Fatalf("webhook retry: %v %v", already, err)
+	}
+	if _, err := CompleteSepayBankPayment(p.OrderInvoiceNumber, "bank:556", ""); err == nil {
+		t.Fatal("accepted a second bank event for the same order")
+	}
+	other, err := CreateSepayBankPayment(1, "manual-no-id-other", 500000, 26000, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := CompleteSepayBankPayment(other.OrderInvoiceNumber, "bank:555", ""); err == nil {
+		t.Fatal("reused bank event credited another order")
+	}
+	var after User
+	if err := DB.First(&after, 1).Error; err != nil || after.Quota != before.Quota+p.QuotaSnapshot {
+		t.Fatalf("quota: %d -> %d, %v", before.Quota, after.Quota, err)
 	}
 }
 

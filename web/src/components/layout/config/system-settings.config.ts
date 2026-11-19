@@ -20,6 +20,7 @@ import { type TFunction } from 'i18next'
 import {
   Box,
   CreditCard,
+  Gift,
   Layout,
   Settings,
   Shield,
@@ -68,7 +69,7 @@ function getSystemSettingsNavGroups(t: TFunction): NavGroup[] {
         },
         {
           title: t('Promotions'),
-          icon: CreditCard,
+          icon: Gift,
           items: getPromotionSectionNavItems(t),
         },
         {

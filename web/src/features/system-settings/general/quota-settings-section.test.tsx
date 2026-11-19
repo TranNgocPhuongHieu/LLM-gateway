@@ -29,10 +29,6 @@ vi.mock('../components/settings-section', () => ({
 const defaults = (quotaForNewUser: number) => ({
   QuotaForNewUser: quotaForNewUser,
   PreConsumedQuota: 500,
-  QuotaForInviter: 0,
-  QuotaForInvitee: 0,
-  TopUpLink: '',
-  general_setting: { docs_link: '' },
   quota_setting: { enable_free_model_pre_consume: true },
 })
 
@@ -50,6 +46,14 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   mutateAsync.mockReset()
+})
+
+describe('QuotaSettingsSection fields', () => {
+  it('does not render the Top-Up Link field', () => {
+    render(<QuotaSettingsSection defaultValues={defaults(96154)} />)
+    expect(screen.queryByText('Top-Up Link')).toBeNull()
+    expect(screen.queryByLabelText('Top-Up Link')).toBeNull()
+  })
 })
 
 describe('QuotaSettingsSection new user credit', () => {

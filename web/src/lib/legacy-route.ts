@@ -18,6 +18,11 @@ For commercial licensing, please contact support@quantumnous.com
 */
 const legacyOrigin = 'https://legacy-route.invalid'
 
+// Settings paths that moved to a different page. Keys are normalized pathnames.
+const movedSettingsRoutes: Record<string, string> = {
+  '/system-settings/site/notice': '/system-settings/content/notice',
+}
+
 const legacyConsoleRoutes: Record<string, string> = {
   '/console': '/dashboard',
   '/console/models': '/models',
@@ -72,6 +77,8 @@ export function resolveLegacyRoute(rawHref: string): string | null {
   }
 
   const pathname = normalizeLegacyPath(source.pathname)
+  const movedTarget = movedSettingsRoutes[pathname]
+  if (movedTarget) return buildTargetHref(movedTarget, source)
   if (pathname === '/login') {
     return buildTargetHref('/sign-in', source)
   }

@@ -6934,6 +6934,9 @@
     "Sign up with Google and get {{credit}} free credit to try the API.": "Đăng ký bằng Google và nhận {{credit}} credit để dùng thử API.",
     "Start free with Google": "Bắt đầu miễn phí với Google",
     "New user credit": "Credit cho người dùng mới",
-    "Free credit for each new account, in credits ({{formattedQuota}})": "Credit miễn phí cho mỗi tài khoản mới, nhập theo credit ({{formattedQuota}})"
+    "Free credit for each new account, in credits ({{formattedQuota}})": "Credit miễn phí cho mỗi tài khoản mới, nhập theo credit ({{formattedQuota}})",
+    "How much to charge for each US dollar of balance": "Giá thu cho mỗi đô la Mỹ số dư",
+    "Smallest USD amount users can recharge": "Số tiền USD tối thiểu người dùng có thể nạp",
+    "Payment methods offered on the recharge form, stored as PayMethods JSON.": "Các phương thức thanh toán hiển thị ở form nạp tiền, lưu dưới dạng JSON PayMethods."
   }
 }

@@ -25,6 +25,7 @@ import {
 } from "./section-registry.tsx";
 
 const defaultContentSettings: ContentSettings = {
+  Notice: "",
   "console_setting.api_info": "[]",
   "console_setting.announcements": "[]",
   "console_setting.faq": "[]",

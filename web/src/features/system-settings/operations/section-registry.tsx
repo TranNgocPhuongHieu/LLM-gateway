@@ -19,7 +19,6 @@ For commercial licensing, please contact support@quantumnous.com
 import { SystemBehaviorSection } from '../general/system-behavior-section'
 import { EmailSettingsSection } from '../integrations/email-settings-section'
 import { MonitoringSettingsSection } from '../integrations/monitoring-settings-section'
-import { WorkerSettingsSection } from '../integrations/worker-settings-section'
 import { LogSettingsSection } from '../maintenance/log-settings-section'
 import { PerformanceSection } from '../maintenance/performance-section'
 import type { OperationsSettings } from '../types'
@@ -33,8 +32,6 @@ const OPERATIONS_SECTIONS = [
       <SystemBehaviorSection
         defaultValues={{
           DefaultCollapseSidebar: settings.DefaultCollapseSidebar,
-          DemoSiteEnabled: settings.DemoSiteEnabled,
-          SelfUseModeEnabled: settings.SelfUseModeEnabled,
         }}
       />
     ),
@@ -73,20 +70,6 @@ const OPERATIONS_SECTIONS = [
           SMTPStartTLSEnabled: settings.SMTPStartTLSEnabled,
           SMTPInsecureSkipVerify: settings.SMTPInsecureSkipVerify,
           SMTPForceAuthLogin: settings.SMTPForceAuthLogin,
-        }}
-      />
-    ),
-  },
-  {
-    id: 'worker',
-    titleKey: 'Worker Proxy',
-    build: (settings: OperationsSettings) => (
-      <WorkerSettingsSection
-        defaultValues={{
-          WorkerUrl: settings.WorkerUrl,
-          WorkerValidKey: settings.WorkerValidKey,
-          WorkerAllowHttpImageRequestEnabled:
-            settings.WorkerAllowHttpImageRequestEnabled,
         }}
       />
     ),

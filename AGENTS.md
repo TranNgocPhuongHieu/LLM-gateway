@@ -9,7 +9,7 @@
 - Preserve dirty worktree changes. Treat API routes, persisted JSON keys, DB fields, relay formats, and `web/src/i18n/locales/vi.json` as contracts.
 - Context-first: run the matching command before opening a large file; prefer the output's line numbers over repeated dumps.
 - `relaykit` is a separate Go module; its standard check is `(cd relaykit && go test ./...)`.
-- Naming: the product is `llm-gateway`; `newapi`/`new-api` is the old name. New Docker images, tags, Compose projects and containers use `llm-gateway` with fixed names (e.g. `llm-gateway:candidate`, `llm-gateway:rollback`); never add timestamp/PID suffixes. Do not rename the existing `newapi` Compose project or `new-api-*` containers (deploy guards depend on them). Scripts and tests that build throwaway images must remove them when done.
+- Naming: the product is `llm-gateway`; `newapi`/`new-api` is the old name. New Docker images, tags, Compose projects and containers use `llm-gateway` and keep exactly one gateway image, `llm-gateway:current`: no rollback, candidate, timestamp or PID tags, and remove the previous container and image after each deploy (roll back by rebuilding the previous commit). Do not rename the existing `newapi` Compose project or `new-api-*` containers (deploy guards depend on them). Scripts and tests that build throwaway images must remove them when done.
 
 | Command | Use |
 |---|---|

@@ -96,7 +96,8 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 	var (
 		stopChan    = make(chan bool, 3) // 增加缓冲区避免阻塞
 		scanner     = NewStreamScanner(resp.Body)
-		ticker      = time.NewTicker(streamingTimeout)
+		streamTimer = time.NewTimer(streamingTimeout)
+		activity    = make(chan struct{}, 1)
 		pingTicker  *time.Ticker
 		writeMutex  sync.Mutex     // Mutex to protect concurrent writes
 		wg          sync.WaitGroup // 用于等待所有 goroutine 退出
@@ -135,7 +136,12 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 				_ = resp.Body.Close()
 			}
 
-			ticker.Stop()
+			if !streamTimer.Stop() {
+				select {
+				case <-streamTimer.C:
+				default:
+				}
+			}
 			if pingTicker != nil {
 				pingTicker.Stop()
 			}
@@ -253,7 +259,13 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 			default:
 			}
 
-			ticker.Reset(streamingTimeout)
+			// The handler owns the timer. Reporting activity instead of resetting
+			// it here avoids a concurrent reset/receive race and stale ticks that
+			// can terminate a healthy long-lived stream.
+			select {
+			case activity <- struct{}{}:
+			default:
+			}
 			data := scanner.Text()
 			logger.LogDebug(c, "stream scanner data: %s", data)
 
@@ -266,10 +278,14 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 				continue
 			}
 
-			if len(data) < 6 {
-				continue
+			trimmed := strings.TrimSpace(data)
+			if trimmed == "[DONE]" || strings.HasPrefix(trimmed, "[DONE] ") {
+				info.StreamStatus.SetTerminalEvidence("done")
+				info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonDone, nil)
+				logger.LogDebug(c, "received [DONE], stopping scanner")
+				return
 			}
-			if data[:5] != "data:" && data[:6] != "[DONE]" {
+			if len(data) < 6 || data[:5] != "data:" {
 				continue
 			}
 			data = data[5:]
@@ -277,21 +293,20 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 			if data == "" {
 				continue
 			}
-			if !strings.HasPrefix(data, "[DONE]") {
-				info.SetFirstResponseTime()
-				info.ReceivedResponseCount++
-
-				select {
-				case dataChan <- data:
-				case <-ctx.Done():
-					return
-				case <-stopChan:
-					return
-				}
-			} else {
+			if strings.HasPrefix(data, "[DONE]") {
 				info.StreamStatus.SetTerminalEvidence("done")
 				info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonDone, nil)
 				logger.LogDebug(c, "received [DONE], stopping scanner")
+				return
+			}
+			info.SetFirstResponseTime()
+			info.ReceivedResponseCount++
+
+			select {
+			case dataChan <- data:
+			case <-ctx.Done():
+				return
+			case <-stopChan:
 				return
 			}
 		}
@@ -305,16 +320,33 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 		info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonEOF, nil)
 	})
 
-	// 主循环等待完成或超时
-	select {
-	case <-ticker.C:
-		info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonTimeout, nil)
-	case <-stopChan:
-		// EndReason already set by the goroutine that triggered stopChan
-	case <-c.Request.Context().Done():
-		// 客户端断开：立即 cleanup 关闭上游 resp.Body，解除 scanner 阻塞并让上游停止生成，
-		// 避免为已放弃的请求继续消费上游 token。
-		info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonClientGone, c.Request.Context().Err())
+	// Main goroutine exclusively owns the idle timer. This makes every scanner
+	// line a reliable activity reset without allowing stale timer events.
+waitForStream:
+	for {
+		select {
+		case <-streamTimer.C:
+			info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonTimeout, nil)
+			logger.LogError(c, "stream timeout: no upstream SSE activity")
+			break waitForStream
+		case <-activity:
+			if !streamTimer.Stop() {
+				select {
+				case <-streamTimer.C:
+				default:
+				}
+			}
+			streamTimer.Reset(streamingTimeout)
+		case <-stopChan:
+			// EndReason already set by the goroutine that triggered stopChan.
+			break waitForStream
+		case <-c.Request.Context().Done():
+			// Client disconnect: close the upstream body in cleanup below so the
+			// provider stops generating abandoned tokens promptly.
+			info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonClientGone, c.Request.Context().Err())
+			logger.LogDebug(c, "stream client disconnected: %v", c.Request.Context().Err())
+			break waitForStream
+		}
 	}
 
 	cleanup()

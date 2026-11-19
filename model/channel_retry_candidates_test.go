@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/constant"
 	"github.com/TranNgocPhuongHieu/LLM-gateway/dto"
+	kitdto "github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/dto"
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -336,6 +338,79 @@ func TestRetryCandidatesLegacySelectionUnchanged(t *testing.T) {
 				t.Fatalf("legacy retry changed: channel=%v err=%v", ch, err)
 			}
 		})
+	}
+}
+
+func TestRetryCandidatesCachedPriorityScanPreservesClampAndConsistency(t *testing.T) {
+	setupRetryCandidates(t, true)
+
+	ch, err := GetRandomSatisfiedChannel("default", retryTestModel, 99, nil)
+	if err != nil || ch == nil || ch.Id != 10 {
+		t.Fatalf("retry clamp changed: channel=%v err=%v", ch, err)
+	}
+
+	channelSyncLock.Lock()
+	delete(channelsIDM, 11)
+	channelSyncLock.Unlock()
+	if _, err := GetRandomSatisfiedChannel("default", retryTestModel, 0, nil); err == nil {
+		t.Fatal("missing cached channel did not return a consistency error")
+	}
+}
+
+func TestRetryCandidatesCachedPriorityScanHandlesStaleOrder(t *testing.T) {
+	setupRetryCandidates(t, true)
+	priority := int64(2)
+	channelSyncLock.Lock()
+	channelsIDM[9].Priority = &priority
+	channelSyncLock.Unlock()
+
+	ch, err := GetRandomSatisfiedChannel("default", retryTestModel, 1, nil)
+	if err != nil || ch == nil || ch.GetPriority() != 1 {
+		t.Fatalf("stale cache order changed numeric priority selection: channel=%v err=%v", ch, err)
+	}
+}
+
+func TestCachedAdvancedCustomPathFilterUsesSnapshot(t *testing.T) {
+	setupRetryCandidates(t, true)
+	config := &kitdto.AdvancedCustomConfig{Routes: []kitdto.AdvancedCustomRoute{{
+		IncomingPath: "/v1/chat/completions",
+	}}}
+	settings, err := json.Marshal(kitdto.ChannelOtherSettings{AdvancedCustom: config})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	channelSyncLock.Lock()
+	oldAdvanced := channel2advancedCustomConfig
+	channel := channelsIDM[8]
+	channel.Type = constant.ChannelTypeAdvancedCustom
+	channel.OtherSettings = string(settings)
+	channel2advancedCustomConfig = map[int]*kitdto.AdvancedCustomConfig{8: config}
+	channelSyncLock.Unlock()
+	t.Cleanup(func() {
+		channelSyncLock.Lock()
+		channel2advancedCustomConfig = oldAdvanced
+		channelSyncLock.Unlock()
+	})
+
+	filters := []dto.ChannelFilter{{Kind: dto.FilterRequestPath, RequestPath: "/v1/chat/completions"}}
+	channelSyncLock.Lock()
+	channel.OtherSettings = "{invalid"
+	channelSyncLock.Unlock()
+	channelSyncLock.RLock()
+	kept, emptiedBy := filterCandidateIDs([]int{8}, retryTestModel, filters)
+	channelSyncLock.RUnlock()
+	if len(kept) != 1 || kept[0] != 8 || emptiedBy != "" {
+		t.Fatalf("cached Advanced Custom filter failed: kept=%v emptiedBy=%q", kept, emptiedBy)
+	}
+
+	channelSyncLock.Lock()
+	channel.OtherSettings = string(settings)
+	channel2advancedCustomConfig = map[int]*kitdto.AdvancedCustomConfig{}
+	kept, emptiedBy = filterCandidateIDs([]int{8}, retryTestModel, filters)
+	channelSyncLock.Unlock()
+	if len(kept) != 1 || kept[0] != 8 || emptiedBy != "" {
+		t.Fatalf("fallback Advanced Custom filter failed: kept=%v emptiedBy=%q", kept, emptiedBy)
 	}
 }
 

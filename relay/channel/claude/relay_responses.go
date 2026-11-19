@@ -39,8 +39,6 @@ func ClaudeResponsesStreamHandler(c *gin.Context, resp *http.Response, info *rel
 	}
 	var streamErr *types.NewAPIError
 	// streamFailed means a Responses-native terminal error was sent successfully.
-	// In that case the scanner stops without a transport error and the partial
-	// upstream usage remains billable.
 	streamFailed := false
 
 	sendResponsesEvent := func(eventType string, payload dto.ResponsesStreamResponse) bool {
@@ -105,6 +103,9 @@ func ClaudeResponsesStreamHandler(c *gin.Context, resp *http.Response, info *rel
 			sr.Stop(streamErr)
 			return
 		}
+		if claudeResponse.Type == "message_stop" {
+			info.StreamStatus.SetTerminalEvidence("message_stop")
+		}
 
 		if claudeResponse.StopReason != "" {
 			maybeMarkClaudeRefusal(c, claudeResponse.StopReason)
@@ -156,6 +157,9 @@ func ClaudeResponsesStreamHandler(c *gin.Context, resp *http.Response, info *rel
 	})
 	if streamErr != nil {
 		return nil, streamErr
+	}
+	if endErr := validateClaudeStreamEnd(c, info); endErr != nil {
+		return nil, endErr
 	}
 	if streamFailed {
 		return claudeInfo.Usage, nil

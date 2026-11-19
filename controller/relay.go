@@ -246,7 +246,10 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		newAPIError = service.NormalizeViolationFeeError(newAPIError)
 		relayInfo.LastError = newAPIError
 
-		willRetry := retryParam.GetRetry() < common.RetryTimes && shouldRetry(c, newAPIError, common.RetryTimes-retryParam.GetRetry())
+		// Once any response chunk has reached the client, replaying the request
+		// can duplicate provider work and billing. Stream adaptors mark this
+		// state through SendResponseCount; keep the current attempt terminal.
+		willRetry := shouldRetryRelayAttempt(c, relayInfo, newAPIError, common.RetryTimes-retryParam.GetRetry())
 		processChannelError(c, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(c, constant.ContextKeyChannelKey), channel.GetAutoBan()), newAPIError, relayInfo, !willRetry)
 		terminalErrorRecorded = !willRetry && constant.ErrorLogEnabled && types.IsRecordErrorLog(newAPIError)
 
@@ -265,6 +268,13 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			perfmetrics.RecordRelaySample(relayInfo, false, 0)
 		})
 	}
+}
+
+func shouldRetryRelayAttempt(c *gin.Context, info *relaycommon.RelayInfo, err *types.NewAPIError, remaining int) bool {
+	if info != nil && (info.SendResponseCount > 0 || (info.IsStream && c != nil && c.Writer.Written())) {
+		return false
+	}
+	return remaining > 0 && shouldRetry(c, err, remaining)
 }
 
 // CountClaudeTokens implements Anthropic's token-counting utility endpoint.

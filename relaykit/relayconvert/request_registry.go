@@ -521,12 +521,7 @@ func convertOpenAIResponsesRequestToGeminiChat(c context.Context, info convmeta.
 	if err != nil {
 		return nil, err
 	}
-
-	prepared, err := oairesponses.PrepareOpenAIResponsesRequest(*responsesRequest)
-	if err != nil {
-		return nil, err
-	}
-	return oairesponses.OpenAIResponsesRequestToGeminiChat(c, &prepared, info)
+	return oairesponses.OpenAIResponsesRequestToGeminiChat(c, responsesRequest, info)
 }
 
 func convertResponsesRequestToChat(_ context.Context, _ convmeta.Meta, request any) (any, error) {

@@ -5,6 +5,7 @@ import (
 
 	"github.com/TranNgocPhuongHieu/LLM-gateway/constant"
 	"github.com/TranNgocPhuongHieu/LLM-gateway/dto"
+	kitdto "github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/dto"
 )
 
 var filterEvalOrder = []dto.ChannelFilterKind{
@@ -49,7 +50,7 @@ func filterCandidateIDs(ids []int, modelName string, filters []dto.ChannelFilter
 		next := make([]int, 0, len(kept))
 		for _, id := range kept {
 			channel, exists := channelsIDM[id]
-			if candidatePassesKindFilters(channel, exists, modelName, kind, kindFilters) {
+			if candidatePassesKindFilters(channel, exists, id, modelName, kind, kindFilters) {
 				next = append(next, id)
 			}
 		}
@@ -71,15 +72,19 @@ func filtersByKind(filters []dto.ChannelFilter, kind dto.ChannelFilterKind) []dt
 	return matched
 }
 
-func candidatePassesKindFilters(ch *Channel, exists bool, modelName string, kind dto.ChannelFilterKind, filters []dto.ChannelFilter) bool {
+func candidatePassesKindFilters(ch *Channel, exists bool, channelID int, modelName string, kind dto.ChannelFilterKind, filters []dto.ChannelFilter) bool {
 	if kind == dto.FilterRequestPath && !exists {
 		return true
 	}
 	if !exists || ch == nil {
 		return false
 	}
+	var advancedCustomConfig *kitdto.AdvancedCustomConfig
+	if kind == dto.FilterRequestPath && ch.Type == constant.ChannelTypeAdvancedCustom {
+		advancedCustomConfig = channel2advancedCustomConfig[channelID]
+	}
 	for _, filter := range filters {
-		if !channelMatchesFilter(ch, modelName, filter) {
+		if !channelMatchesFilterWithConfig(ch, modelName, filter, advancedCustomConfig) {
 			return false
 		}
 	}
@@ -87,6 +92,10 @@ func candidatePassesKindFilters(ch *Channel, exists bool, modelName string, kind
 }
 
 func channelMatchesFilter(ch *Channel, modelName string, filter dto.ChannelFilter) bool {
+	return channelMatchesFilterWithConfig(ch, modelName, filter, nil)
+}
+
+func channelMatchesFilterWithConfig(ch *Channel, modelName string, filter dto.ChannelFilter, advancedCustomConfig *kitdto.AdvancedCustomConfig) bool {
 	switch filter.Kind {
 	case dto.FilterRequestPath:
 		if filter.RequestPath == "" {
@@ -95,7 +104,10 @@ func channelMatchesFilter(ch *Channel, modelName string, filter dto.ChannelFilte
 		if ch.Type != constant.ChannelTypeAdvancedCustom {
 			return true
 		}
-		config := ch.GetOtherSettings().AdvancedCustom
+		config := advancedCustomConfig
+		if config == nil {
+			config = ch.GetOtherSettings().AdvancedCustom
+		}
 		return config != nil && config.SupportsPathForModel(filter.RequestPath, modelName)
 	case dto.FilterTaskPluginIdentity:
 		if ch.Type == constant.ChannelTypeTaskPlugin {

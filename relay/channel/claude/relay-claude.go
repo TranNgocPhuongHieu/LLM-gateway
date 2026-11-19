@@ -90,6 +90,10 @@ func HandleStreamResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 	if claudeError := claudeResponse.GetClaudeError(); claudeError != nil && claudeError.Type != "" {
 		return types.WithClaudeError(*claudeError, http.StatusInternalServerError)
 	}
+	if claudeResponse.Type == "message_stop" && info.IsStream && info.StreamStatus != nil &&
+		(info.RelayFormat == types.RelayFormatClaude || info.RelayFormat == types.RelayFormatOpenAI || info.RelayFormat == types.RelayFormatOpenAIResponses) {
+		info.StreamStatus.SetTerminalEvidence("message_stop")
+	}
 	if claudeResponse.StopReason != "" {
 		maybeMarkClaudeRefusal(c, claudeResponse.StopReason)
 	}
@@ -112,7 +116,9 @@ func HandleStreamResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 			}
 		}
 		countClaudeStreamBillableTools(c, info, &claudeResponse)
-		helper.ClaudeChunkData(c, claudeResponse, data)
+		if err := helper.ClaudeChunkData(c, claudeResponse, data); err != nil {
+			return types.NewError(err, types.ErrorCodeBadResponseBody)
+		}
 	} else if info.RelayFormat == types.RelayFormatOpenAI {
 		state, err := claudeToChatStreamState(info)
 		if err != nil {
@@ -280,6 +286,20 @@ func HandleStreamFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, clau
 	}
 }
 
+func validateClaudeStreamEnd(c *gin.Context, info *relaycommon.RelayInfo) *types.NewAPIError {
+	if !info.IsStream || (info.RelayFormat != types.RelayFormatClaude && info.RelayFormat != types.RelayFormatOpenAI && info.RelayFormat != types.RelayFormatOpenAIResponses) {
+		return nil
+	}
+	if err := c.Request.Context().Err(); err != nil {
+		return types.NewOpenAIError(fmt.Errorf("client request canceled: %w", err), types.ErrorCodeBadResponse, http.StatusRequestTimeout, types.ErrOptionWithSkipRetry())
+	}
+	status := info.StreamStatus
+	if status == nil || status.EndError != nil || status.HasErrors() || !status.IsNormalEnd() || status.TerminalEvidence != "message_stop" {
+		return types.NewOpenAIError(fmt.Errorf("Claude stream ended without a valid terminal (%s)", status.Summary()), types.ErrorCodeBadResponse, http.StatusBadGateway)
+	}
+	return nil
+}
+
 func ClaudeStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (*dto.Usage, *types.NewAPIError) {
 	claudeInfo := &ClaudeResponseInfo{
 		ResponseId:   helper.GetResponseID(c),
@@ -297,6 +317,9 @@ func ClaudeStreamHandler(c *gin.Context, resp *http.Response, info *relaycommon.
 	})
 	if err != nil {
 		return nil, err
+	}
+	if endErr := validateClaudeStreamEnd(c, info); endErr != nil {
+		return nil, endErr
 	}
 
 	HandleStreamFinalResponse(c, info, claudeInfo)

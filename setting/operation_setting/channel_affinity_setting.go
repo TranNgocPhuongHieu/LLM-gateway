@@ -141,7 +141,9 @@ var channelAffinitySetting = ChannelAffinitySetting{
 			ValueRegex:            "",
 			TTLSeconds:            0,
 			ParamOverrideTemplate: buildPassHeaderTemplate(claudeCliPassThroughHeaders),
-			SkipRetryOnFailure:    true,
+			// Keep affinity as the preferred channel, but allow retry/fallback when
+			// the pinned Claude channel returns an upstream failure.
+			SkipRetryOnFailure:    false,
 			IncludeUsingGroup:     true,
 			IncludeRuleName:       true,
 			UserAgentInclude:      nil,

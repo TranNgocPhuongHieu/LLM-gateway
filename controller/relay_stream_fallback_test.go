@@ -39,11 +39,6 @@ func TestStreamErrorsReachFallbackWithoutLeaking(t *testing.T) {
 	settings.PingIntervalEnabled = false
 	t.Cleanup(func() { settings.PingIntervalEnabled = oldPing })
 	info.IsStream, info.RelayMode, info.RelayFormat = true, relayconstant.RelayModeChatCompletions, types.RelayFormatOpenAI
-	// Heartbeats may already have committed HTTP 200; they must not prevent retry.
-	helper.SetEventStreamHeaders(c)
-	if err := helper.PingData(c); err != nil {
-		t.Fatal(err)
-	}
 	for attempt := 0; attempt < 5; attempt++ {
 		param.SetRetry(attempt)
 		channel, selectionErr := getChannel(c, info, param)
@@ -114,10 +109,53 @@ func TestRelayCanceledRequestDoesNotRetry(t *testing.T) {
 }
 
 func TestRelayPartialStreamStopOverridesChannelError(t *testing.T) {
-	c, _, _ := setupRelayRetryCandidates(t)
+	c, info, _ := setupRelayRetryCandidates(t)
 	err := types.NewOpenAIError(errors.New("partial stream interrupted"), types.ErrorCodeChannelResponseTimeExceeded, 502, types.ErrOptionWithSkipRetry())
-	if shouldRetry(c, err, 5) {
+	if shouldRetryRelayAttempt(c, info, err, 5) {
 		t.Fatal("channel error overrode the no-replay guard")
+	}
+}
+
+func TestRelayDoesNotRetryAfterResponseChunkWasSent(t *testing.T) {
+	c, info, _ := setupRelayRetryCandidates(t)
+	info.SendResponseCount = 1
+	err := types.NewOpenAIError(errors.New("stream interrupted after output"), types.ErrorCodeBadResponse, http.StatusBadGateway)
+	if shouldRetryRelayAttempt(c, info, err, 5) {
+		t.Fatal("partial response must not be replayed")
+	}
+}
+
+func TestRelayDoesNotRetryAfterSSEHeadersCommitted(t *testing.T) {
+	c, info, _ := setupRelayRetryCandidates(t)
+	info.IsStream = true
+	helper.SetEventStreamHeaders(c)
+	if err := helper.PingData(c); err != nil {
+		t.Fatal(err)
+	}
+	err := types.NewOpenAIError(errors.New("upstream failed after headers"), types.ErrorCodeBadResponse, http.StatusBadGateway)
+	if shouldRetryRelayAttempt(c, info, err, 5) {
+		t.Fatal("must not replay a request after SSE headers were committed")
+	}
+}
+
+func TestEarlyHeartbeatRetryBoundary(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	info := &relaycommon.RelayInfo{IsStream: true}
+	err := types.NewOpenAIError(errors.New("mock upstream failure"), types.ErrorCodeChannelResponseTimeExceeded, 502)
+	helper.SetEventStreamHeaders(c)
+	if !shouldRetryRelayAttempt(c, info, err, 1) {
+		t.Fatal("setting SSE headers without flushing must preserve retry")
+	}
+	if pingErr := helper.PingData(c); pingErr != nil {
+		t.Fatal(pingErr)
+	}
+	if shouldRetryRelayAttempt(c, info, err, 1) {
+		t.Fatal("flushed heartbeat must prohibit replay")
+	}
+	if info.SendResponseCount != 0 || info.HasSendResponse() {
+		t.Fatal("heartbeat must not count as model output or first response")
 	}
 }
 

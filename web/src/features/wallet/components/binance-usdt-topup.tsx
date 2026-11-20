@@ -230,13 +230,11 @@ export function BinanceUsdtTopup({ onPaid }: { onPaid: () => void }) {
               className="h-auto flex-col gap-0.5 py-2"
             >
               <span>{value} USDT</span>
-              <span
-                className={`text-xs ${bonusCredits(value) > 0 ? "text-emerald-500" : "opacity-70"}`}
-              >
-                {bonusCredits(value) > 0
-                  ? `+${number(bonusCredits(value))} credit ${t("bonus")}`
-                  : t("No bonus")}
-              </span>
+              {bonusCredits(value) > 0 && (
+                <span className="text-xs font-medium text-emerald-500">
+                  +{number(bonusCredits(value))} credit {t("bonus")}
+                </span>
+              )}
             </Button>
           ))}
         </div>

@@ -321,17 +321,12 @@ export function SepayTopup({
                 </span>
               )}
               <span className="block font-bold">{format(preset)} VND</span>
-              <span
-                className={
-                  bonusPercentFor(preset) > 0
-                    ? "mt-1 block text-xs font-medium text-emerald-500"
-                    : "text-muted-foreground mt-1 block text-xs"
-                }
-              >
-                {bonusPercentFor(preset) > 0
-                  ? `+${format((preset * bonusPercentFor(preset)) / 100)} ${s("thưởng", "bonus")}`
-                  : s("Không có thưởng", "No bonus")}
-              </span>
+              {bonusPercentFor(preset) > 0 && (
+                <span className="mt-1 block text-xs font-medium text-emerald-500">
+                  +{format(Math.floor((preset * bonusPercentFor(preset)) / 100 / 1000))} credit{" "}
+                  {s("thưởng", "bonus")}
+                </span>
+              )}
             </button>
           ))}
         </div>

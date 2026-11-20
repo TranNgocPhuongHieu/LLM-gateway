@@ -47,6 +47,21 @@ describe("inline SePay bank QR top-up", () => {
     expect(screen.getByLabelText("Hoặc nhập số tiền khác (VND)")).toBeTruthy();
     expect(screen.getAllByText("100.000 VND").length).toBeGreaterThan(0);
   });
+  it("labels only bonus presets, in credits, with the halved tiers", async () => {
+    mocks.get.mockResolvedValue({
+      data: { success: true, data: { enabled: true, bank_enabled: true } },
+    });
+    render(<SepayTopup userId={1} onPaid={() => {}} />);
+    await screen.findByRole("button", { name: "Tạo mã QR" });
+    const preset = (label: string) =>
+      screen.getByRole("button", { name: new RegExp(`(^|[^0-9.])${label} VND`) }).textContent;
+    expect(preset("10\\.000")).toBe("10.000 VND");
+    expect(preset("100\\.000")).toBe("Phổ biến100.000 VND+5 credit thưởng");
+    expect(preset("200\\.000")).toBe("200.000 VND+15 credit thưởng");
+    expect(preset("500\\.000")).toBe("500.000 VND+50 credit thưởng");
+    expect(preset("1\\.000\\.000")).toBe("1.000.000 VND+150 credit thưởng");
+    expect(screen.queryByText("Không có thưởng")).toBeNull();
+  });
   it("shows QR in the same page and polls for automatic credit", async () => {
     const onPaid = vi.fn();
     mocks.get.mockImplementation((path: string) =>

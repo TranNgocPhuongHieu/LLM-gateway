@@ -54,9 +54,13 @@ export function formatCompactNumber(
     : formatted
 }
 
-export function formatPercent(value: number | null | undefined): string {
+// locale: the UI language; omitted, the browser default applies.
+export function formatPercent(
+  value: number | null | undefined,
+  locale?: string
+): string {
   if (value == null || Number.isNaN(value as number)) return '-'
-  return Intl.NumberFormat(undefined, {
+  return Intl.NumberFormat(locale, {
     style: 'percent',
     maximumFractionDigits: 2,
   }).format((value as number) / 100)

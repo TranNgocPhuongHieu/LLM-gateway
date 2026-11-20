@@ -28,6 +28,7 @@ import { useAuthStore } from '@/stores/auth-store'
 
 import { VND_PER_CREDIT } from './credit-vnd'
 import { KpiChange } from './kpi-change'
+import { useLowBalance } from './low-balance-banner'
 import {
   averageDailyQuota,
   percentChange,
@@ -41,7 +42,7 @@ import {
 import {
   useCurrentMinute,
   useSelfBreakdown,
-  useSelfErrorSummary,
+  useSelfErrorCount,
   useSpendKpiQueries,
 } from './use-overview-usage'
 
@@ -95,7 +96,9 @@ export function SummaryCards(props: { range: TimeRange | null }) {
   )
   const current = useSelfBreakdown(unixRange, 'model')
   const previous = useSelfBreakdown(previousUnixRange, 'model')
-  const errors = useSelfErrorSummary(unixRange)
+  const errors = useSelfErrorCount(unixRange)
+  // While the low-balance banner shows, it carries the runway and Top up.
+  const lowBalance = useLowBalance()
   const recent = useSpendKpiQueries(now)
 
   const balanceCredits = quotaUnitsToDollars(balanceQuota)
@@ -106,7 +109,7 @@ export function SummaryCards(props: { range: TimeRange | null }) {
     now
   )
   let runwayText: string | null = null
-  if (runOut.kind === 'date') {
+  if (!lowBalance && runOut.kind === 'date') {
     runwayText =
       runOut.days >= 1
         ? t('Enough for about {{days}} days at your recent spending', {
@@ -118,7 +121,7 @@ export function SummaryCards(props: { range: TimeRange | null }) {
   // Undefined data means the request is pending or failed; never show zero.
   const spendQuota = current.data?.total.quota
   const successCount = current.data?.total.count
-  const errorCount = errors.data?.total
+  const errorCount = errors.data
   const requestCount =
     successCount === undefined ? undefined : successCount + (errorCount ?? 0)
   const previousRequests = previous.data?.total.count
@@ -144,13 +147,15 @@ export function SummaryCards(props: { range: TimeRange | null }) {
         {runwayText && (
           <div className='text-muted-foreground text-xs'>{runwayText}</div>
         )}
-        <Button
-          size='sm'
-          className='mt-1 w-fit'
-          render={<Link to='/wallet' />}
-        >
-          {t('Top up')}
-        </Button>
+        {!lowBalance && (
+          <Button
+            size='sm'
+            className='mt-1 w-fit'
+            render={<Link to='/wallet' />}
+          >
+            {t('Top up')}
+          </Button>
+        )}
       </KpiCard>
 
       <KpiCard
@@ -191,7 +196,7 @@ export function SummaryCards(props: { range: TimeRange | null }) {
           )}
         >
           {t('Error rate {{rate}}', {
-            rate: errorRate === null ? '-' : formatPercent(errorRate),
+            rate: errorRate === null ? '-' : formatPercent(errorRate, locale),
           })}
           {errorCount !== undefined &&
             ` · ${t('{{count}} errors', { count: formatNumber(errorCount, locale) })}`}

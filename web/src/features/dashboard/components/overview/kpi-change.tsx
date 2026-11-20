@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 
+import { resolveAppLocale } from '@/lib/currency'
 import { formatPercent } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -15,7 +16,8 @@ export function KpiChange(props: {
   change: number | null | undefined
   neutral?: boolean
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = resolveAppLocale(i18n.resolvedLanguage || i18n.language)
   const change = props.change
   if (change == null || !Number.isFinite(change)) return null
   return (
@@ -32,7 +34,7 @@ export function KpiChange(props: {
     >
       {change > MAX_SHOWN_CHANGE_PERCENT
         ? t('New')
-        : `${change >= 0 ? '▲' : '▼'} ${formatPercent(Math.abs(change))}`}
+        : `${change >= 0 ? '▲' : '▼'} ${formatPercent(Math.abs(change), locale)}`}
     </span>
   )
 }

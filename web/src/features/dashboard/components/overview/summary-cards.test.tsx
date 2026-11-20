@@ -9,7 +9,8 @@ type Breakdown = { total: { quota: number; count: number; token_used: number } }
 const mocks = vi.hoisted(() => ({
   current: undefined as Breakdown,
   previous: undefined as Breakdown,
-  errors: undefined as { total: number } | undefined,
+  errors: undefined as number | undefined,
+  lowBalance: null as null | { reason: 'runway'; balanceQuota: number; days: number },
   last7DaysQuota: 0 as number | undefined,
   currentStart: 0,
 }))
@@ -39,9 +40,10 @@ vi.mock('./use-overview-usage', () => ({
     data: range?.start_timestamp === mocks.currentStart ? mocks.current : mocks.previous,
     isError: false,
   }),
-  useSelfErrorSummary: () => ({ data: mocks.errors }),
+  useSelfErrorCount: () => ({ data: mocks.errors }),
   useSpendKpiQueries: () => ({ last7DaysQuota: mocks.last7DaysQuota }),
 }))
+vi.mock('./low-balance-banner', () => ({ useLowBalance: () => mocks.lowBalance }))
 vi.mock('@/stores/auth-store', () => {
   const state = () => ({ auth: { user: { id: 1, role: 1, quota: 500000 }, session: { sid: 's' } } })
   return {
@@ -61,7 +63,8 @@ beforeEach(() => {
   mocks.currentStart = Math.floor(range.start.getTime() / 1000)
   mocks.current = { total: { quota: 300000, count: 90, token_used: 0 } }
   mocks.previous = { total: { quota: 200000, count: 60, token_used: 0 } }
-  mocks.errors = { total: 10 }
+  mocks.errors = 10
+  mocks.lowBalance = null
   mocks.last7DaysQuota = 700000
 })
 
@@ -116,5 +119,14 @@ describe('SummaryCards', () => {
 
     expect(screen.queryByText(/at your recent spending/)).toBeNull()
     expect(screen.getAllByText('—')).toHaveLength(2)
+  })
+
+  it('leaves the runway and Top up to the banner while it shows', () => {
+    mocks.lowBalance = { reason: 'runway', balanceQuota: 500000, days: 2 }
+    render(<SummaryCards range={range} />)
+
+    expect(screen.queryByText(/at your recent spending/)).toBeNull()
+    expect(screen.queryByText('Top up')).toBeNull()
+    expect(screen.getByText('Credit remaining')).toBeTruthy()
   })
 })

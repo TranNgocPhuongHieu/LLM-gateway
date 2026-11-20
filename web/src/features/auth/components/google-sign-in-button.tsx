@@ -76,11 +76,11 @@ export function GoogleSignInButton({
     <Button
       type="button"
       variant="outline"
-      className={cn("h-12 w-full justify-center gap-3 rounded-xl font-semibold", className)}
+      className={cn("h-10 w-full justify-center gap-2.5 rounded-xl font-medium", className)}
       disabled={loading}
       onClick={start}
     >
-      {loading ? <Loader2 className="animate-spin" aria-hidden="true" /> : <GoogleIcon />}
+      {loading ? <Loader2 className="animate-spin" aria-hidden="true" /> : <GoogleIcon className="size-4" />}
       {label ?? t("Continue with Google")}
     </Button>
   );

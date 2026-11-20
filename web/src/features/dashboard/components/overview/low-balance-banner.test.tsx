@@ -46,8 +46,15 @@ describe('LowBalanceBanner', () => {
     expect(container.textContent).toBe('')
   })
 
-  it('explains the threshold when the balance is below it', () => {
-    Object.assign(state, { quota: 400_000, threshold: 500_000, last7DaysQuota: 0 })
+  it('stays hidden below the threshold when nothing was spent recently', () => {
+    // New account holding only its signup credit.
+    Object.assign(state, { quota: 96_154, threshold: 500_000, last7DaysQuota: 0 })
+    const { container } = render(<LowBalanceBanner />)
+    expect(container.textContent).toBe('')
+  })
+
+  it('explains the threshold when an active customer is below it', () => {
+    Object.assign(state, { quota: 400_000, threshold: 500_000, last7DaysQuota: 70_000 })
     render(<LowBalanceBanner />)
     expect(screen.getByText('Balance 400000q · warning threshold 500000q')).toBeTruthy()
   })

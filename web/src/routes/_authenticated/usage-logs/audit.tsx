@@ -22,14 +22,18 @@ import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
 export const Route = createFileRoute('/_authenticated/usage-logs/audit')({
-  // This page duplicated /request-logs. Keep the super-admin guard, then
-  // forward to the single request-logs page.
+  // This page duplicated the admin usage logs. Keep the super-admin guard,
+  // then forward to the dashboard usage-log tab.
   beforeLoad: () => {
     const { auth } = useAuthStore.getState()
     if (!auth.user || auth.user.role < ROLE.SUPER_ADMIN) {
       throw redirect({ to: '/403' })
     }
-    throw redirect({ to: '/request-logs', replace: true })
+    throw redirect({
+      to: '/dashboard/$section',
+      params: { section: 'logs' },
+      replace: true,
+    })
   },
   component: () => null,
 })

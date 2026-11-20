@@ -19,7 +19,6 @@ For commercial licensing, please contact support@quantumnous.com
 import {
   Activity,
   Box,
-  FileText,
   Gauge,
   Key,
   LayoutDashboard,
@@ -116,12 +115,6 @@ export function useSidebarData(): SidebarData {
             title: t("Price Management"),
             url: "/price-management",
             icon: Tag,
-            requiredRole: ROLE.SUPER_ADMIN,
-          },
-          {
-            title: t("Request Logs"),
-            url: "/request-logs",
-            icon: FileText,
             requiredRole: ROLE.SUPER_ADMIN,
           },
           {

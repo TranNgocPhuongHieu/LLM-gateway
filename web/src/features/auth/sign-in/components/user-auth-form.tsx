@@ -136,12 +136,8 @@ export function UserAuthForm({
         )}
         {...props}
       >
-        {googleEnabled && <GoogleSignInButton redirectTo={redirectTo} />}
-
         {passwordLoginEnabled && (
           <>
-            {googleEnabled && <AuthDivider label={t("or sign in with username")} />}
-
             {/* Username Field */}
             <FormField
               control={form.control}
@@ -208,6 +204,13 @@ export function UserAuthForm({
               {isLoading && <Loader2 className="animate-spin" aria-hidden="true" />}
               {t("Sign in")}
             </Button>
+          </>
+        )}
+
+        {googleEnabled && (
+          <>
+            {passwordLoginEnabled && <AuthDivider label={t("or")} />}
+            <GoogleSignInButton redirectTo={redirectTo} />
           </>
         )}
 

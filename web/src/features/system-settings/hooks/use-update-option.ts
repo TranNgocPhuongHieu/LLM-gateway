@@ -45,6 +45,12 @@ const STATUS_RELATED_KEYS = new Set([
   'passkey.rp_id',
   'passkey.legacy_rp_ids',
   'passkey.origins',
+  'GoogleOAuthEnabled',
+  'GoogleClientId',
+  'GoogleClientSecret',
+  'QuotaForNewUser',
+  'PasswordRegisterEnabled',
+  'RegisterEnabled',
 ])
 
 export function useUpdateOption() {

@@ -5,12 +5,20 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { getFlowQuotaDates } from '@/features/dashboard/api'
+import { formatQuotaWithCredit } from '@/lib/currency'
 import { getRollingDateRange } from '@/lib/time'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
 const RANGE_OPTIONS = [1, 7, 30] as const
 const LIMIT_OPTIONS = [5, 10, 20] as const
+
+// Quota is stored in raw units; every displayed quota goes through this formatter.
+const CREDIT_FORMAT = { abbreviate: false, digitsLarge: 2, digitsSmall: 4 } as const
+
+function formatCredits(quota: number): string {
+  return formatQuotaWithCredit(quota, CREDIT_FORMAT)
+}
 
 export function AdminUsageTrackingCard() {
   const { t } = useTranslation()
@@ -119,8 +127,8 @@ export function AdminUsageTrackingCard() {
             <div className='flex h-40 items-end gap-2 overflow-x-auto border-b px-2 pb-0'>
               {chartRows.map((row) => (
                 <div key={row.name} className='flex h-full min-w-14 flex-1 flex-col items-center justify-end gap-1'>
-                  <span className='text-muted-foreground text-[10px] tabular-nums'>{row.quota.toLocaleString()}</span>
-                  <div className='bg-primary/80 hover:bg-primary w-full min-w-8 rounded-t-md transition-colors' style={{ height: `${Math.max((row.quota / chartMax) * 100, 4)}%` }} title={`${row.name}: ${row.quota.toLocaleString()}`} />
+                  <span className='text-muted-foreground text-[10px] tabular-nums'>{formatCredits(row.quota)}</span>
+                  <div className='bg-primary/80 hover:bg-primary w-full min-w-8 rounded-t-md transition-colors' style={{ height: `${Math.max((row.quota / chartMax) * 100, 4)}%` }} title={`${row.name}: ${formatCredits(row.quota)}`} />
                   <span className='text-muted-foreground max-w-20 truncate text-[10px]' title={row.name}>{row.name}</span>
                 </div>
               ))}
@@ -130,7 +138,7 @@ export function AdminUsageTrackingCard() {
         <div className='grid grid-cols-2 gap-2 sm:grid-cols-1'>
           <div className='bg-muted/20 rounded-xl border p-3'>
             <div className='text-muted-foreground text-xs'>{t('Credits used')}</div>
-            <div className='mt-1 text-xl font-semibold tabular-nums'>{totalQuota.toLocaleString()}</div>
+            <div className='mt-1 text-xl font-semibold tabular-nums'>{formatCredits(totalQuota)}</div>
           </div>
           <div className='bg-muted/20 rounded-xl border p-3'>
             <div className='text-muted-foreground text-xs'>{t('Requests')}</div>
@@ -149,7 +157,7 @@ export function AdminUsageTrackingCard() {
             <tr><th className='px-4 py-2 sm:px-5'>{t('User')}</th><th className='px-3 py-2'>{t('API key')}</th><th className='px-3 py-2'>{t('Model')}</th><th className='px-3 py-2 text-right'>{t('Requests')}</th><th className='px-4 py-2 text-right sm:px-5'>{t('Credits used')}</th></tr>
           </thead>
           <tbody className='divide-border/60 divide-y'>
-            {query.isLoading ? <tr><td colSpan={5} className='px-4 py-8 text-center'>{t('Loading')}</td></tr> : query.data?.length ? query.data.map((row, index) => <tr key={`${row.user_id}-${row.token_id}-${row.model_name}-${index}`} className='hover:bg-muted/20'><td className='px-4 py-2.5 sm:px-5'>{row.username || `#${row.user_id ?? '—'}`}</td><td className='text-muted-foreground px-3 py-2.5'>{row.token_name || (row.token_id ? `#${row.token_id}` : t('Unknown'))}</td><td className='px-3 py-2.5 font-mono text-xs'>{row.model_name || '—'}</td><td className='px-3 py-2.5 text-right tabular-nums'>{Number(row.count ?? 0).toLocaleString()}</td><td className='px-4 py-2.5 text-right tabular-nums sm:px-5'>{Number(row.quota ?? 0).toLocaleString()}</td></tr>) : <tr><td colSpan={5} className='text-muted-foreground px-4 py-8 text-center'>{t('No API key usage in this range')}</td></tr>}
+            {query.isLoading ? <tr><td colSpan={5} className='px-4 py-8 text-center'>{t('Loading')}</td></tr> : query.data?.length ? query.data.map((row, index) => <tr key={`${row.user_id}-${row.token_id}-${row.model_name}-${index}`} className='hover:bg-muted/20'><td className='px-4 py-2.5 sm:px-5'>{row.username || `#${row.user_id ?? '—'}`}</td><td className='text-muted-foreground px-3 py-2.5'>{row.token_name || (row.token_id ? `#${row.token_id}` : t('Unknown'))}</td><td className='px-3 py-2.5 font-mono text-xs'>{row.model_name || '—'}</td><td className='px-3 py-2.5 text-right tabular-nums'>{Number(row.count ?? 0).toLocaleString()}</td><td className='px-4 py-2.5 text-right tabular-nums sm:px-5'>{formatCredits(Number(row.quota ?? 0))}</td></tr>) : <tr><td colSpan={5} className='text-muted-foreground px-4 py-8 text-center'>{t('No API key usage in this range')}</td></tr>}
           </tbody>
         </table>
       </div>

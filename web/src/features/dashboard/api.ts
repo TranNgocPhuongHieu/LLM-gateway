@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { api } from '@/lib/api'
 
 import type {
+  AdminSummaryData,
   FlowQuotaDataItem,
   QuotaDataItem,
   SelfApiResponse,
@@ -75,6 +76,30 @@ export async function getSelfErrorSummary(params: {
 }) {
   const res = await api.get<SelfApiResponse<SelfErrorSummaryData>>(
     '/api/log/self/error_summary',
+    { params }
+  )
+  return res.data
+}
+
+// System-wide top-up, signup, user and request totals (root admin only).
+export async function getAdminSummary(params: {
+  start_timestamp: number
+  end_timestamp: number
+}) {
+  const res = await api.get<SelfApiResponse<AdminSummaryData>>(
+    '/api/data/admin_summary',
+    { params }
+  )
+  return res.data
+}
+
+// System-wide error logs grouped by cause (root admin only).
+export async function getAdminErrorSummary(params: {
+  start_timestamp: number
+  end_timestamp: number
+}) {
+  const res = await api.get<SelfApiResponse<SelfErrorSummaryData>>(
+    '/api/log/error_summary',
     { params }
   )
   return res.data

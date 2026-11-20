@@ -6815,6 +6815,25 @@
     "Copy config for": "Copy config for",
     "More tools in Docs": "More tools in Docs",
     "Sign up with Google and get {{credit}} free credit to try the API.": "Sign up with Google and get {{credit}} free credit to try the API.",
-    "Start free with Google": "Start free with Google"
+    "Start free with Google": "Start free with Google",
+    "New user credit": "New user credit",
+    "Free credit for each new account, in credits ({{formattedQuota}})": "Free credit for each new account, in credits ({{formattedQuota}})",
+    "How much to charge for each US dollar of balance": "How much to charge for each US dollar of balance",
+    "Smallest USD amount users can recharge": "Smallest USD amount users can recharge",
+    "Payment methods offered on the recharge form, stored as PayMethods JSON.": "Payment methods offered on the recharge form, stored as PayMethods JSON.",
+    "Active customers": "Active customers",
+    "All customers, grouped by cause for the selected period": "All customers, grouped by cause for the selected period",
+    "Could not load system summary.": "Could not load system summary.",
+    "Error rate {{rate}}": "Error rate {{rate}}",
+    "New signups": "New signups",
+    "Granted {{amount}} at signup": "Granted {{amount}} at signup",
+    "System daily cost": "System daily cost",
+    "System errors": "System errors",
+    "Top-ups": "Top-ups",
+    "View model call analytics on the Models tab": "View model call analytics on the Models tab",
+    "{{count}} errors": "{{count}} errors",
+    "{{count}} pending": "{{count}} pending",
+    "{{count}} via Google": "{{count}} via Google",
+    "≈ {{amount}} VND": "≈ {{amount}} VND"
   }
 }

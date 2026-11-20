@@ -137,17 +137,36 @@ type ErrorSummary struct {
 	Categories []ErrorSummaryCategory `json:"categories"`
 }
 
-// GetUserErrorSummary classifies the caller's terminal error logs in
+// GetUserErrorSummary classifies one user's terminal error logs in
 // [startTimestamp, endTimestamp], newest first, up to errorSummaryRowLimit rows.
 // Intermediate retry attempts are excluded by hideIntermediateRelayErrors.
 func GetUserErrorSummary(userId int, startTimestamp int64, endTimestamp int64) (*ErrorSummary, error) {
+	return getErrorSummary(&userId, startTimestamp, endTimestamp)
+}
+
+// GetErrorSummary is the system-wide variant of GetUserErrorSummary. userId 0
+// means all users; any other value filters to that user exactly as the
+// self-service endpoint does.
+func GetErrorSummary(userId int, startTimestamp int64, endTimestamp int64) (*ErrorSummary, error) {
+	if userId == 0 {
+		return getErrorSummary(nil, startTimestamp, endTimestamp)
+	}
+	return getErrorSummary(&userId, startTimestamp, endTimestamp)
+}
+
+// getErrorSummary keeps the newest errorSummaryRowLimit terminal error rows,
+// restricted to userId when it is non-nil.
+func getErrorSummary(userId *int, startTimestamp int64, endTimestamp int64) (*ErrorSummary, error) {
 	order := "created_at desc, id desc"
 	if common.UsingLogDatabase(common.DatabaseTypeClickHouse) {
 		order = clickHouseLogOrder("")
 	}
 	tx := LOG_DB.Model(&Log{}).
 		Select("content, model_name, created_at").
-		Where("user_id = ? and type = ? and created_at >= ? and created_at <= ?", userId, LogTypeError, startTimestamp, endTimestamp)
+		Where("type = ? and created_at >= ? and created_at <= ?", LogTypeError, startTimestamp, endTimestamp)
+	if userId != nil {
+		tx = tx.Where("user_id = ?", *userId)
+	}
 	tx = hideIntermediateRelayErrors(tx, "")
 
 	var rows []*Log

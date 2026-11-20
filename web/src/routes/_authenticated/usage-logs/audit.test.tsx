@@ -29,12 +29,15 @@ afterEach(() => {
 })
 
 describe('usage-logs audit route', () => {
-  it('forwards super admins to the single request-logs page', () => {
+  it('forwards super admins to the dashboard usage-log tab', () => {
     setRole(ROLE.SUPER_ADMIN)
-    expect(captureRedirect()).toMatchObject({ to: '/request-logs' })
+    expect(captureRedirect()).toMatchObject({
+      to: '/dashboard/$section',
+      params: { section: 'logs' },
+    })
   })
 
-  it('sends non super admins to 403 before any redirect to request-logs', () => {
+  it('sends non super admins to 403 before any redirect', () => {
     setRole(ROLE.USER)
     expect(captureRedirect()).toMatchObject({ to: '/403' })
   })

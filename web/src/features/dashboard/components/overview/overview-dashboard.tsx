@@ -55,17 +55,13 @@ import { handleServerError } from '@/lib/handle-server-error'
 import { MOTION_TRANSITION } from '@/lib/motion'
 import { ROLE } from '@/lib/roles'
 import { requireServerSuccess } from '@/lib/server-error-message'
-import { computeTimeRange } from '@/lib/time'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
-import { getUserQuotaDates } from '../../api'
 import { useApiInfo } from '../../hooks/use-status-data'
-import { ConsumptionDistributionChart } from '../models/consumption-distribution-chart'
-import { ModelCharts } from '../models/model-charts'
+import { AdminOverview } from './admin/admin-overview'
 import { RecentUsagePanel, useDashboardBalance } from './recent-usage-panel'
 import { SummaryCards } from './summary-cards'
-import { AdminUsageTrackingCard } from './admin-usage-tracking-card'
 import {
   buildClientConfig,
   buildCurlCommand,
@@ -75,7 +71,6 @@ import { DailyCostChart } from './daily-cost-chart'
 import { LowBalanceBanner } from './low-balance-banner'
 import { OverviewRangePicker } from './overview-range-picker'
 import {
-  addLocalDays,
   resolveRangeState,
   toLocalDateKey,
   type RangeState,
@@ -480,13 +475,11 @@ export function OverviewDashboard() {
   useDashboardBalance()
   const { items: apiInfoItems } = useApiInfo()
   const now = useCurrentMinute()
+  // Opens on today for everyone. The custom dates only matter once the user
+  // picks Custom, so they start on today too.
   const [rangeState, setRangeState] = useState<RangeState>(() => {
-    const today = new Date()
-    return {
-      preset: '7d',
-      customStart: toLocalDateKey(addLocalDays(today, -6)),
-      customEnd: toLocalDateKey(today),
-    }
+    const initialKey = toLocalDateKey(new Date())
+    return { preset: 'today', customStart: initialKey, customEnd: initialKey }
   })
   const todayKey = toLocalDateKey(now)
   const resolvedRange = useMemo(
@@ -502,33 +495,6 @@ export function OverviewDashboard() {
   const usedQuota = Number(user?.used_quota ?? 0)
   const isAdmin = Boolean(user?.role && user.role >= ROLE.SUPER_ADMIN)
 
-  const chartTimeRange = useMemo(() => computeTimeRange(28), [])
-  const quotaQuery = useQuery({
-    queryKey: [
-      'dashboard',
-      'overview',
-      'quota-dates-28d',
-      isAdmin,
-      chartTimeRange.start_timestamp,
-      chartTimeRange.end_timestamp,
-    ],
-    queryFn: async () => {
-      const result = requireServerSuccess(
-        await getUserQuotaDates(
-          {
-            start_timestamp: chartTimeRange.start_timestamp,
-            end_timestamp: chartTimeRange.end_timestamp,
-            default_time: 'hour',
-          },
-          isAdmin
-        )
-      )
-      return result.data ?? []
-    },
-    staleTime: 60 * 1000,
-    enabled: isAdmin,
-  })
-
   const apiKeysQuery = useQuery({
     queryKey: ['dashboard', 'overview', 'api-keys'],
     queryFn: async () => {
@@ -536,6 +502,7 @@ export function OverviewDashboard() {
       return result.success ? (result.data?.items ?? []) : []
     },
     staleTime: 60 * 1000,
+    enabled: !isAdmin,
   })
 
   const modelsQuery = useQuery({
@@ -545,6 +512,7 @@ export function OverviewDashboard() {
       return result.success ? (result.data ?? []) : []
     },
     staleTime: 5 * 60 * 1000,
+    enabled: !isAdmin,
   })
 
   const preferredKey = useMemo(
@@ -678,7 +646,7 @@ export function OverviewDashboard() {
     <SectionPageLayout>
       <SectionPageLayout.Title>{t('Overview')}</SectionPageLayout.Title>
       <SectionPageLayout.Actions>
-        {setupStatusReady && (
+        {setupStatusReady && !isAdmin && (
           <Button
             ref={setupGuideToggleRef}
             variant='ghost'
@@ -694,126 +662,113 @@ export function OverviewDashboard() {
       </SectionPageLayout.Actions>
       <SectionPageLayout.Content>
         <div className='flex flex-col gap-4'>
-          <LowBalanceBanner />
           <OverviewRangePicker
             value={rangeState}
             onChange={setRangeState}
             todayKey={todayKey}
             error={resolvedRange.error}
           />
-          <SummaryCards />
 
-          <div id={setupGuideId} hidden={!setupGuideExpanded}>
-            {setupGuideExpanded && (
-              <CardStaggerContainer className='grid items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]'>
-                <CardStaggerItem className='bg-card h-full overflow-hidden rounded-2xl border shadow-xs'>
-                  <div className='relative h-full overflow-hidden p-4 sm:p-5'>
-                    <SetupGuideBackdrop />
-                    <div className='relative grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem]'>
-                      <div className='flex min-w-0 flex-col gap-5'>
-                        <div className='flex flex-wrap items-start justify-between gap-3'>
-                          <div className='flex max-w-2xl flex-col gap-1'>
-                            <div className='text-muted-foreground flex items-center gap-2 text-xs font-medium tracking-wider uppercase'>
-                              <ListChecks
-                                className='size-3.5'
-                                aria-hidden='true'
-                              />
-                              {t('Get started')}
-                            </div>
-                            <h3 className='text-xl font-semibold tracking-tight sm:text-2xl'>
-                              {t('Build on your API gateway in minutes')}
-                            </h3>
-                            <p className='text-muted-foreground max-w-xl text-sm leading-relaxed'>
-                              {t(
-                                'A focused home for keys, balance, routing, and service health.'
-                              )}
-                            </p>
-                          </div>
-                          <div className='flex flex-wrap items-center gap-2'>
-                            <Button
-                              variant='outline'
-                              size='sm'
-                              aria-expanded={setupGuideExpanded}
-                              aria-controls={setupGuideId}
-                              onClick={handleSetupGuideToggle}
-                            >
-                              <ChevronUp data-icon='inline-start' />
-                              {t('Hide setup guide')}
-                            </Button>
-                            <Button size='sm' render={<Link to='/keys' />}>
-                              <KeyRound data-icon='inline-start' />
-                              {t('Create API Key')}
-                            </Button>
-                          </div>
-                        </div>
-
-                        <ol className='bg-background/45 rounded-2xl border p-2 backdrop-blur'>
-                          {startSteps.map((step, index) => (
-                            <StartStepItem
-                              key={step.title}
-                              step={step}
-                              index={index}
-                              isLast={index === startSteps.length - 1}
-                            />
-                          ))}
-                        </ol>
-                      </div>
-
-                      <RequestPreview
-                        example={requestExample}
-                        signals={heroSignals}
-                      />
-                    </div>
-                  </div>
-                </CardStaggerItem>
-
-                <CardStaggerItem className='bg-card h-full rounded-2xl border p-4 shadow-xs sm:p-5'>
-                  <div className='flex h-full flex-col gap-4'>
-                    <div className='flex flex-col gap-1'>
-                      <div className='text-muted-foreground text-xs font-medium tracking-wider uppercase'>
-                        {t('Recommended actions')}
-                      </div>
-                      <h3 className='text-lg font-semibold tracking-tight'>
-                        {t('Keep the platform ready')}
-                      </h3>
-                    </div>
-                    <div className='grid gap-2'>
-                      {visibleQuickActions.map((action) => (
-                        <QuickActionItem key={action.title} action={action} />
-                      ))}
-                    </div>
-                  </div>
-                </CardStaggerItem>
-              </CardStaggerContainer>
-            )}
-          </div>
-
-          <DailyCostChart range={resolvedRange.range} />
-
-          <div className='grid gap-4 lg:grid-cols-2'>
-            <SpendBreakdownCard range={resolvedRange.range} />
-            <RecentErrorsCard range={resolvedRange.range} />
-          </div>
-
-          <AdminUsageTrackingCard />
-
-          <RecentUsagePanel />
-
-          {/* Customers get the daily cost chart above; these system-wide
-              charts stay for super admins only. */}
-          {isAdmin && (
+          {isAdmin ? (
+            <AdminOverview range={resolvedRange.range} />
+          ) : (
             <>
-              <ConsumptionDistributionChart
-                data={quotaQuery.data ?? []}
-                loading={quotaQuery.isLoading}
-                timeGranularity='hour'
-              />
+              <LowBalanceBanner />
+              <SummaryCards />
 
-              <ModelCharts
-                data={quotaQuery.data ?? []}
-                loading={quotaQuery.isLoading}
-                timeGranularity='hour'
-              />
+              <div id={setupGuideId} hidden={!setupGuideExpanded}>
+                {setupGuideExpanded && (
+                  <CardStaggerContainer className='grid items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]'>
+                    <CardStaggerItem className='bg-card h-full overflow-hidden rounded-2xl border shadow-xs'>
+                      <div className='relative h-full overflow-hidden p-4 sm:p-5'>
+                        <SetupGuideBackdrop />
+                        <div className='relative grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem]'>
+                          <div className='flex min-w-0 flex-col gap-5'>
+                            <div className='flex flex-wrap items-start justify-between gap-3'>
+                              <div className='flex max-w-2xl flex-col gap-1'>
+                                <div className='text-muted-foreground flex items-center gap-2 text-xs font-medium tracking-wider uppercase'>
+                                  <ListChecks
+                                    className='size-3.5'
+                                    aria-hidden='true'
+                                  />
+                                  {t('Get started')}
+                                </div>
+                                <h3 className='text-xl font-semibold tracking-tight sm:text-2xl'>
+                                  {t('Build on your API gateway in minutes')}
+                                </h3>
+                                <p className='text-muted-foreground max-w-xl text-sm leading-relaxed'>
+                                  {t(
+                                    'A focused home for keys, balance, routing, and service health.'
+                                  )}
+                                </p>
+                              </div>
+                              <div className='flex flex-wrap items-center gap-2'>
+                                <Button
+                                  variant='outline'
+                                  size='sm'
+                                  aria-expanded={setupGuideExpanded}
+                                  aria-controls={setupGuideId}
+                                  onClick={handleSetupGuideToggle}
+                                >
+                                  <ChevronUp data-icon='inline-start' />
+                                  {t('Hide setup guide')}
+                                </Button>
+                                <Button size='sm' render={<Link to='/keys' />}>
+                                  <KeyRound data-icon='inline-start' />
+                                  {t('Create API Key')}
+                                </Button>
+                              </div>
+                            </div>
+
+                            <ol className='bg-background/45 rounded-2xl border p-2 backdrop-blur'>
+                              {startSteps.map((step, index) => (
+                                <StartStepItem
+                                  key={step.title}
+                                  step={step}
+                                  index={index}
+                                  isLast={index === startSteps.length - 1}
+                                />
+                              ))}
+                            </ol>
+                          </div>
+
+                          <RequestPreview
+                            example={requestExample}
+                            signals={heroSignals}
+                          />
+                        </div>
+                      </div>
+                    </CardStaggerItem>
+
+                    <CardStaggerItem className='bg-card h-full rounded-2xl border p-4 shadow-xs sm:p-5'>
+                      <div className='flex h-full flex-col gap-4'>
+                        <div className='flex flex-col gap-1'>
+                          <div className='text-muted-foreground text-xs font-medium tracking-wider uppercase'>
+                            {t('Recommended actions')}
+                          </div>
+                          <h3 className='text-lg font-semibold tracking-tight'>
+                            {t('Keep the platform ready')}
+                          </h3>
+                        </div>
+                        <div className='grid gap-2'>
+                          {visibleQuickActions.map((action) => (
+                            <QuickActionItem key={action.title} action={action} />
+                          ))}
+                        </div>
+                      </div>
+                    </CardStaggerItem>
+                  </CardStaggerContainer>
+                )}
+              </div>
+
+              <DailyCostChart range={resolvedRange.range} />
+
+              <div className='grid gap-4 lg:grid-cols-2'>
+                <SpendBreakdownCard range={resolvedRange.range} />
+                <RecentErrorsCard range={resolvedRange.range} />
+              </div>
+
+              <RecentUsagePanel />
             </>
           )}
         </div>

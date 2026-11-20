@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import type { ContentSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
 import { AnnouncementsSection } from './announcements-section'
+import { NoticeSection } from '../maintenance/notice-section'
 import { ApiInfoSection } from './api-info-section'
 import { DashboardSection } from './dashboard-section'
 
@@ -47,6 +48,13 @@ const CONTENT_SECTIONS = [
           ),
         }}
       />
+    ),
+  },
+  {
+    id: 'notice',
+    titleKey: 'System Notice',
+    build: (settings: ContentSettings) => (
+      <NoticeSection defaultValue={settings.Notice ?? ''} />
     ),
   },
   {

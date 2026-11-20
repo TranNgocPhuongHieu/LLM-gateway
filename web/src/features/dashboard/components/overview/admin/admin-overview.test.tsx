@@ -230,6 +230,34 @@ describe('AdminOverview', () => {
     ).toBeTruthy()
   })
 
+  it('shows top-up revenue as VND / 1,000 credits with a custom display currency', async () => {
+    // Production display: CUSTOM currency at 26,000. Quota values go through
+    // the currency rate, but order VND must stay 1 credit = 1,000 VND.
+    useSystemConfigStore.getState().setConfig({
+      currency: { ...DEFAULT_CURRENCY_CONFIG },
+    })
+    renderOverview()
+
+    expect(await screen.findByText('1,700 credit')).toBeTruthy()
+    expect(screen.getByText('+ 250 credit bonus granted')).toBeTruthy()
+    expect(screen.queryByText(/44,200/)).toBeNull()
+  })
+
+  it('caps very large period changes', async () => {
+    const currentStart = Math.floor(range.start.getTime() / 1000)
+    mocks.summary.mockImplementation(async (params: { start_timestamp: number }) => ({
+      success: true,
+      data:
+        params.start_timestamp === currentStart
+          ? summaryData
+          : { ...summaryData, requests: { total: 10, errors: 0 } },
+    }))
+    renderOverview()
+
+    // 2,000 vs 10 requests = +19,900%.
+    expect(await screen.findByText('▲ >999%')).toBeTruthy()
+  })
+
   it('compares each KPI with the previous period and flags a high error rate', async () => {
     const currentStart = Math.floor(range.start.getTime() / 1000)
     mocks.summary.mockImplementation(async (params: { start_timestamp: number }) => ({

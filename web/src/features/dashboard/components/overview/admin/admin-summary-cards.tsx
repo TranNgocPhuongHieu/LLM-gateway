@@ -3,11 +3,7 @@ import { AlertTriangle } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import {
-  formatCreditPrice,
-  formatQuotaWithCredit,
-  resolveAppLocale,
-} from '@/lib/currency'
+import { formatQuotaWithCredit, resolveAppLocale } from '@/lib/currency'
 import { formatNumber, formatPercent } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -54,10 +50,15 @@ function formatMethodAmount(
     : `${label} ${amount} ${currency}`
 }
 
-// VND amounts from the orders, shown as credits at the site rate.
-function formatVndAsCredits(vnd: number): string {
-  return formatCreditPrice(vnd / VND_PER_CREDIT, CREDIT_FORMAT)
+// VND amounts from the orders, shown as credits at the fixed site rate
+// (1 credit = 1,000 VND). This must not go through the USD-based currency
+// formatter: with a custom display currency it would apply that rate again.
+function formatVndAsCredits(vnd: number, locale: string): string {
+  return `${formatNumber(vnd / VND_PER_CREDIT, locale)} credit`
 }
+
+// Changes beyond this are shown as ">999%" instead of a long number.
+const MAX_SHOWN_CHANGE_PERCENT = 999
 
 function errorRatePercent(requests: AdminSummaryData['requests']): number | null {
   return requests.total > 0 ? (requests.errors / requests.total) * 100 : null
@@ -127,7 +128,7 @@ export function AdminSummaryCards(props: {
             credited quota: bonus credits are not revenue. */}
         <KpiCard
           label={t('Top-up revenue')}
-          value={formatVndAsCredits(topup.paid_vnd)}
+          value={formatVndAsCredits(topup.paid_vnd, locale)}
           change={previous ? percentChange(topup.paid_vnd, previous.topup.paid_vnd) : null}
         >
           <span className='text-muted-foreground text-xs tabular-nums'>
@@ -148,7 +149,7 @@ export function AdminSummaryCards(props: {
           {topup.bonus_vnd > 0 && (
             <span className='text-muted-foreground text-xs tabular-nums'>
               {t('+ {{amount}} bonus granted', {
-                amount: formatVndAsCredits(topup.bonus_vnd),
+                amount: formatVndAsCredits(topup.bonus_vnd, locale),
               })}
             </span>
           )}
@@ -235,7 +236,10 @@ function KpiCard(props: {
             )}
             title={t('Compared with the previous period')}
           >
-            {change >= 0 ? '▲' : '▼'} {formatPercent(Math.abs(change))}
+            {change >= 0 ? '▲' : '▼'}{' '}
+            {Math.abs(change) > MAX_SHOWN_CHANGE_PERCENT
+              ? `>${MAX_SHOWN_CHANGE_PERCENT}%`
+              : formatPercent(Math.abs(change))}
           </span>
         )}
       </div>

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 
 import { getUserProfile } from '@/features/profile/api'
+import { getUserLogs } from '@/features/usage-logs/api'
 import { normalizeUserSettings } from '@/features/profile/lib/user-settings'
 import { requireServerSuccess } from '@/lib/server-error-message'
 import { useAuthStore } from '@/stores/auth-store'
@@ -30,6 +31,7 @@ import { AVERAGE_WINDOW_DAYS } from './overview-metrics'
 
 const STALE_TIME_MS = 60 * 1000
 const MINUTE_MS = 60 * 1000
+const LOG_TYPE_ERROR = 5
 
 const EMPTY_BREAKDOWN: SelfBreakdownData = {
   total: { quota: 0, count: 0, token_used: 0 },
@@ -109,6 +111,37 @@ export function useSelfDailyUsage(range: UnixRange | null) {
         rows.push(...(result.data ?? []))
       }
       return rows
+    },
+    staleTime: STALE_TIME_MS,
+    retry: false,
+    meta: { errorToast: false },
+  })
+}
+
+// Exact number of the customer's terminal error logs in range: the log list's
+// total for type 5 (retry attempts are hidden server-side, as in the error
+// summary). The error summary itself stops counting at 5,000 rows.
+export function useSelfErrorCount(range: UnixRange | null) {
+  const { userId, sessionId } = useUserScope()
+  return useQuery({
+    queryKey: [
+      'dashboard',
+      'overview',
+      'self-error-count',
+      userId,
+      sessionId,
+      range?.start_timestamp,
+      range?.end_timestamp,
+    ],
+    enabled: Boolean(userId && range),
+    queryFn: async (): Promise<number> => {
+      if (!range) return 0
+      const result = requireServerSuccess(
+        await getUserLogs({ ...range, type: LOG_TYPE_ERROR, p: 1, page_size: 1 })
+      )
+      const total = result.data?.total
+      if (typeof total !== 'number') throw new Error('Invalid log total')
+      return total
     },
     staleTime: STALE_TIME_MS,
     retry: false,

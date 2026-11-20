@@ -199,7 +199,7 @@ export function AdminSummaryCards(props: {
             )}
           >
             {t('Error rate {{rate}}', {
-              rate: errorRate === null ? '-' : formatPercent(errorRate),
+              rate: errorRate === null ? '-' : formatPercent(errorRate, locale),
             })}
             {' · '}
             {t('{{count}} errors', { count: formatNumber(requests.errors, locale) })}

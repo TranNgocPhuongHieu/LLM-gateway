@@ -21,12 +21,15 @@ import {
 
 const CREDIT_FORMAT = { abbreviate: false, digitsLarge: 2, digitsSmall: 2 } as const
 
-// Shown only to customers who are actively spending: the balance is under
-// their warning threshold or the projected runway is critical. A balance
-// with no spend in the last 7 days (e.g. a new account's signup credit) is
-// not "running low", so nothing is rendered.
-export function LowBalanceBanner() {
-  const { t } = useTranslation()
+export type LowBalanceState =
+  | { reason: 'threshold'; balanceQuota: number; thresholdQuota: number }
+  | { reason: 'runway'; balanceQuota: number; days: number }
+
+// Non-null only for customers who are actively spending: the balance is under
+// their warning threshold or the projected runway is critical. A balance with
+// no spend in the last 7 days (e.g. a new account's signup credit) is not
+// "running low". SummaryCards uses it to avoid repeating the banner.
+export function useLowBalance(): LowBalanceState | null {
   const user = useAuthStore((state) => state.auth.user)
   const now = useCurrentMinute()
   const balanceQuota = Number(user?.quota ?? 0)
@@ -36,26 +39,38 @@ export function LowBalanceBanner() {
   const thresholdQuota = threshold.data ?? DEFAULT_QUOTA_WARNING_THRESHOLD
   const avgDaily = averageDailyQuota(spend.last7DaysQuota ?? 0)
   if (avgDaily <= 0) return null
-  const health = getHealthLevel(balanceQuota, avgDaily)
-  const belowThreshold = isBelowWarningThreshold(balanceQuota, thresholdQuota)
-  if (!belowThreshold && health !== 'critical') return null
+  if (isBelowWarningThreshold(balanceQuota, thresholdQuota)) {
+    return { reason: 'threshold', balanceQuota, thresholdQuota }
+  }
+  if (getHealthLevel(balanceQuota, avgDaily) !== 'critical') return null
+  const runOut = projectRunOut(balanceQuota, avgDaily, now)
+  return {
+    reason: 'runway',
+    balanceQuota,
+    days: runOut.kind === 'date' ? runOut.days : 0,
+  }
+}
 
-  const balance = formatQuotaWithCredit(balanceQuota, CREDIT_FORMAT)
+export function LowBalanceBanner() {
+  const { t } = useTranslation()
+  const low = useLowBalance()
+  if (!low) return null
+
+  const balance = formatQuotaWithCredit(low.balanceQuota, CREDIT_FORMAT)
   // Explain why the banner is shown: under the user's threshold, or the
   // balance will run out soon at the recent spending rate.
   let detail: string
-  if (belowThreshold) {
+  if (low.reason === 'threshold') {
     detail = t('Balance {{balance}} · warning threshold {{threshold}}', {
       balance,
-      threshold: formatQuotaWithCredit(thresholdQuota, CREDIT_FORMAT),
+      threshold: formatQuotaWithCredit(low.thresholdQuota, CREDIT_FORMAT),
     })
   } else {
-    const runOut = projectRunOut(balanceQuota, avgDaily, now)
     detail =
-      runOut.kind === 'date' && runOut.days >= 1
+      low.days >= 1
         ? t('Balance {{balance}} · about {{days}} days left at your recent spending', {
             balance,
-            days: Math.floor(runOut.days),
+            days: Math.floor(low.days),
           })
         : t('Balance {{balance}} · less than 1 day left at your recent spending', {
             balance,

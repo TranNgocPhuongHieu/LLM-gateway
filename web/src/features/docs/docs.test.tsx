@@ -63,7 +63,7 @@ describe('customer documentation', () => {
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'wire_api' } })
     const navigation = screen.getByRole('navigation', { name: 'Documentation navigation' })
     expect(navigation.textContent).toContain('Application integrationsCodex')
-    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Model unavailable' } })
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'opencode.log' } })
     expect(navigation.textContent).toContain('Application integrationsOpenCode')
     expect(navigation.querySelectorAll('h2')).toHaveLength(1)
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'nonexistent-section' } })

@@ -223,27 +223,27 @@ func sepayQuotaForVND(amountVND int64, quotaPerUnit, exchangeRate float64) (int,
 	return quota, err
 }
 
-// SepayBonusPercent returns the promotional bonus for the fixed VND tiers.
-// The bonus is applied to credited quota, while the bank transfer amount stays
-// equal to the amount shown in the QR request.
-func SepayBonusPercent(amountVND int64) int64 {
+// SepayBonusPermille returns the promotional bonus for the fixed VND tiers in
+// tenths of a percent (75 = 7.5%). The bonus is applied to credited quota,
+// while the bank transfer amount stays equal to the amount shown in the QR
+// request.
+func SepayBonusPermille(amountVND int64) int64 {
 	switch {
 	case amountVND >= 1_000_000:
-		return 30
+		return 150
 	case amountVND >= 500_000:
-		return 20
+		return 100
 	case amountVND >= 200_000:
-		return 15
+		return 75
 	case amountVND >= 100_000:
-		return 10
+		return 50
 	default:
 		return 0
 	}
 }
 
 func sepayCreditedVND(amountVND int64) int64 {
-	bonus := SepayBonusPercent(amountVND)
-	return amountVND + amountVND*bonus/100
+	return amountVND + amountVND*SepayBonusPermille(amountVND)/1000
 }
 
 func CreateSepayPayment(userID int, requestID string, amount int64, rate float64, cfg SepayConfig) (*SepayPayment, error) {

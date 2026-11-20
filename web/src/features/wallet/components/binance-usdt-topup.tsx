@@ -16,6 +16,7 @@ type Quote = {
   bonus_percent: string;
   credits: number;
 };
+type BonusTier = { min_usdt: string; max_usdt?: string; bonus_percent: string };
 type Order = {
   trade_no: string;
   network: Network;
@@ -28,6 +29,17 @@ type Order = {
 
 const shorten = (value: string) =>
   value.length > 18 ? `${value.slice(0, 10)}…${value.slice(-8)}` : value;
+
+// Mirrors model.BinanceConfig.BonusFor: the first tier with
+// min <= amount < max (max optional) wins. The server quote stays authoritative.
+export const usdtBonusPercent = (amount: number, tiers: BonusTier[]) => {
+  for (const tier of tiers) {
+    if (amount < Number(tier.min_usdt)) continue;
+    if (tier.max_usdt && amount >= Number(tier.max_usdt)) continue;
+    return Number(tier.bonus_percent) || 0;
+  }
+  return 0;
+};
 
 // Binance matching keeps six decimal places server-side. For people reading the
 // checkout, remove insignificant zeroes while preserving the exact value.
@@ -48,6 +60,8 @@ export function BinanceUsdtTopup({ onPaid }: { onPaid: () => void }) {
   const [config, setConfig] = useState<{
     min: string;
     max: string;
+    rate: number;
+    bonusTiers: BonusTier[];
     networks: Record<string, boolean>;
   } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -78,6 +92,8 @@ export function BinanceUsdtTopup({ onPaid }: { onPaid: () => void }) {
         setConfig({
           min: value.binance_min_usdt ?? "10",
           max: value.binance_max_usdt ?? "100",
+          rate: Number(value.binance_usdt_to_vnd) || 0,
+          bonusTiers: Array.isArray(value.binance_bonus_tiers) ? value.binance_bonus_tiers : [],
           networks,
         });
         const firstEnabled = (["BEP20", "TRC20"] as Network[]).find(
@@ -179,6 +195,13 @@ export function BinanceUsdtTopup({ onPaid }: { onPaid: () => void }) {
   const presets = ["10", "20", "50", "100"].filter(
     (value) => !config || Number(value) <= Number(config.max),
   );
+  const tiers = config?.bonusTiers ?? [];
+  const bonusTiers = tiers.filter((tier) => Number(tier.bonus_percent) > 0);
+  // Bonus credits for a preset: 1 credit = 1,000 VND, from the base amount.
+  const bonusCredits = (value: string) =>
+    config?.rate
+      ? Math.floor((Number(value) * config.rate * usdtBonusPercent(Number(value), tiers)) / 100 / 1000)
+      : 0;
 
   return (
     <section className="grid gap-5 rounded-2xl border bg-card p-5 lg:grid-cols-2">
@@ -188,6 +211,14 @@ export function BinanceUsdtTopup({ onPaid }: { onPaid: () => void }) {
           <p className="text-sm text-muted-foreground">
             {t("Choose the amount and transfer network.")}
           </p>
+          {bonusTiers.length > 0 && (
+            <p className="mt-1 text-sm text-emerald-600" data-testid="usdt-bonus-tiers">
+              {t("Bonus tiers")}:{" "}
+              {bonusTiers
+                .map((tier) => `${t("from")} ${formatUsdt(tier.min_usdt, locale)} USDT +${formatUsdt(tier.bonus_percent, locale)}%`)
+                .join(" · ")}
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           {presets.map((value) => (
@@ -196,8 +227,16 @@ export function BinanceUsdtTopup({ onPaid }: { onPaid: () => void }) {
               type="button"
               variant={amount === value ? "default" : "outline"}
               onClick={() => setAmount(value)}
+              className="h-auto flex-col gap-0.5 py-2"
             >
-              {value} USDT
+              <span>{value} USDT</span>
+              <span
+                className={`text-xs ${bonusCredits(value) > 0 ? "text-emerald-500" : "opacity-70"}`}
+              >
+                {bonusCredits(value) > 0
+                  ? `+${number(bonusCredits(value))} credit ${t("bonus")}`
+                  : t("No bonus")}
+              </span>
             </Button>
           ))}
         </div>

@@ -15,15 +15,16 @@ export const validSepayAmount = (amount: number) =>
   amount >= 10_000 &&
   amount <= 1_000_000 &&
   amount % 1000 === 0;
+// Mirrors model.SepayBonusPermille (server is authoritative).
 export const sepayBonusPercent = (amount: number) =>
   amount >= 1_000_000
-    ? 30
+    ? 15
     : amount >= 500_000
-      ? 20
+      ? 10
       : amount >= 200_000
-        ? 15
+        ? 7.5
         : amount >= 100_000
-          ? 10
+          ? 5
           : 0;
 const bonusPercentFor = sepayBonusPercent;
 type Order = {
@@ -300,8 +301,8 @@ export function SepayTopup({
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
           {s(
-            "Nạp tối thiểu 10.000 VND. Mốc 100k/200k/500k/1 triệu được cộng lần lượt 10%/15%/20%/30%.",
-            "Minimum top-up is VND 10,000. The 100k/200k/500k/1m tiers receive 10%/15%/20%/30% bonus.",
+            "Nạp tối thiểu 10.000 VND. Mốc 100k/200k/500k/1 triệu được cộng lần lượt 5%/7,5%/10%/15%.",
+            "Minimum top-up is VND 10,000. The 100k/200k/500k/1m tiers receive 5%/7.5%/10%/15% bonus.",
           )}
         </p>
         <div className="my-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
@@ -359,12 +360,12 @@ export function SepayTopup({
               {s("Bạn nhận", "You receive")}
             </p>
             <p className="mt-1 font-bold">
-              {validSepayAmount(amount) ? format(creditedAmount / 1000) : "—"}{" "}
+              {validSepayAmount(amount) ? format(Math.floor(creditedAmount / 1000)) : "—"}{" "}
               credit
             </p>
             {bonusPercent > 0 && (
               <p className="text-xs text-emerald-600">
-                +{bonusPercent}% {s("khuyến mãi", "promotion")}
+                +{format(bonusPercent)}% {s("khuyến mãi", "promotion")}
               </p>
             )}
           </div>

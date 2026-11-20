@@ -8,6 +8,7 @@ import { normalizeInterfaceLanguage } from "@/i18n/languages";
 import { useIsAdmin } from "@/hooks/use-admin";
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
 import { cancelSepayOrder } from "../api";
+import { NextTierHint, PresetGrid, ReceiveSummary, TopupSteps, nextTier } from "./topup-parts";
 
 export const SEPAY_PRESETS = [10_000, 100_000, 200_000, 500_000, 1_000_000];
 export const validSepayAmount = (amount: number) =>
@@ -26,7 +27,13 @@ export const sepayBonusPercent = (amount: number) =>
         : amount >= 100_000
           ? 5
           : 0;
-const bonusPercentFor = sepayBonusPercent;
+const SEPAY_TIERS = [100_000, 200_000, 500_000, 1_000_000].map((min) => ({
+  min,
+  percent: sepayBonusPercent(min),
+}));
+// Bonus credits as the server credits them: floor((amount * bonus%) / 1,000).
+export const sepayBonusCredits = (amount: number) =>
+  Math.floor((amount * sepayBonusPercent(amount)) / 100 / 1000);
 type Order = {
   trade_no: string;
   amount_vnd: number;
@@ -61,10 +68,13 @@ export function SepayTopup({
   const [enabled, setEnabled] = useState(false);
   const [configLoading, setConfigLoading] = useState(true);
   const isAdmin = useIsAdmin();
-  const [rawAmount, setRawAmount] = useState("10000");
+  // Default to the popular tier so the bonus is visible on first load.
+  const [rawAmount, setRawAmount] = useState("100000");
   const amount = Number(rawAmount);
   const bonusPercent = sepayBonusPercent(amount);
-  const creditedAmount = amount + (amount * bonusPercent) / 100;
+  const upgrade = validSepayAmount(amount)
+    ? nextTier(amount, bonusPercent, SEPAY_TIERS, 1_000_000)
+    : null;
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
   const [order, setOrder] = useState<Order | null>(null);
@@ -305,74 +315,62 @@ export function SepayTopup({
             "Minimum top-up is VND 10,000. The 100k/200k/500k/1m tiers receive 5%/7.5%/10%/15% bonus.",
           )}
         </p>
-        <div className="my-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
-          {SEPAY_PRESETS.map((preset) => (
-            <button
-              type="button"
-              key={preset}
-              aria-pressed={amount === preset}
-              disabled={pending || processing}
-              onClick={() => setRawAmount(String(preset))}
-              className={`relative rounded-xl border px-2 py-4 text-center transition-colors disabled:opacity-60 ${amount === preset ? "border-primary bg-primary/10 ring-1 ring-primary" : "bg-muted/30 hover:border-primary/50"}`}
-            >
-              {preset === 100_000 && (
-                <span className="absolute -top-2 right-2 rounded-full bg-primary px-2 text-[10px] text-primary-foreground">
-                  {s("Phổ biến", "Popular")}
-                </span>
-              )}
-              <span className="block font-bold">{format(preset)} VND</span>
-              {bonusPercentFor(preset) > 0 && (
-                <span className="mt-1 block text-xs font-medium text-emerald-500">
-                  +{format(Math.floor((preset * bonusPercentFor(preset)) / 100 / 1000))} credit{" "}
-                  {s("thưởng", "bonus")}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+        <PresetGrid
+          vi={vi}
+          format={format}
+          disabled={pending || processing}
+          selected={rawAmount}
+          onSelect={setRawAmount}
+          presets={SEPAY_PRESETS.map((preset) => ({
+            value: String(preset),
+            label: `${format(preset)} VND`,
+            bonusCredits: sepayBonusCredits(preset),
+            popular: preset === 100_000,
+          }))}
+        />
         <label htmlFor="sepay-amount" className="text-sm font-semibold">
           {s("Hoặc nhập số tiền khác (VND)", "Or enter another amount (VND)")}
         </label>
         <div className="relative mt-2">
           <Input
             id="sepay-amount"
-            type="number"
-            min={10_000}
-            max={1_000_000}
-            step={1000}
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
             disabled={pending || processing}
-            value={rawAmount}
-            onChange={(event) => setRawAmount(event.target.value)}
+            value={rawAmount ? format(amount) : ""}
+            onChange={(event) =>
+              setRawAmount(event.target.value.replace(/\D/g, "").replace(/^0+/, "").slice(0, 9))
+            }
             className="h-14 rounded-xl pr-20 text-lg font-semibold"
           />
           <span className="absolute top-1/2 right-4 -translate-y-1/2 text-sm text-muted-foreground">
             VND
           </span>
         </div>
-        <div className="my-6 flex justify-between rounded-xl bg-muted/40 p-4">
-          <div>
-            <p className="text-xs text-muted-foreground">
-              {s("Bạn nhận", "You receive")}
-            </p>
-            <p className="mt-1 font-bold">
-              {validSepayAmount(amount) ? format(Math.floor(creditedAmount / 1000)) : "—"}{" "}
-              credit
-            </p>
-            {bonusPercent > 0 && (
-              <p className="text-xs text-emerald-600">
-                +{format(bonusPercent)}% {s("khuyến mãi", "promotion")}
+        <ReceiveSummary
+          vi={vi}
+          format={format}
+          baseCredits={validSepayAmount(amount) ? amount / 1000 : null}
+          bonusCredits={validSepayAmount(amount) ? sepayBonusCredits(amount) : 0}
+          bonusPercent={bonusPercent}
+          aside={
+            <>
+              <p className="text-xs text-muted-foreground">{s("Bạn thanh toán", "You pay")}</p>
+              <p className="mt-1 font-bold">
+                {validSepayAmount(amount) ? format(amount) : "—"} VND
               </p>
+            </>
+          }
+        />
+        {upgrade && (
+          <NextTierHint>
+            {s(
+              `Nạp thêm ${format(upgrade.min - amount)} VND để được thưởng ${format(upgrade.percent)}% (+${format(sepayBonusCredits(upgrade.min))} credit).`,
+              `Add ${format(upgrade.min - amount)} VND to get a ${format(upgrade.percent)}% bonus (+${format(sepayBonusCredits(upgrade.min))} credit).`,
             )}
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-muted-foreground">
-              {s("Bạn thanh toán", "You pay")}
-            </p>
-            <p className="mt-1 font-bold">
-              {validSepayAmount(amount) ? format(amount) : "—"} VND
-            </p>
-          </div>
-        </div>
+          </NextTierHint>
+        )}
         {!validSepayAmount(amount) && (
           <p role="alert" className="mb-3 text-sm text-destructive">
             {s(
@@ -430,7 +428,7 @@ export function SepayTopup({
               {s("Nạp thành công", "Top-up successful")}
             </h3>
             <p className="mt-3 text-3xl font-bold text-emerald-500">
-              +{format(order.credits ?? order.amount_vnd / 1000)} credit
+              +{format(order.credits ?? Math.floor(order.amount_vnd / 1000))} credit
             </p>
             <p className="mt-2 text-sm text-muted-foreground">
               {s(
@@ -544,18 +542,24 @@ export function SepayTopup({
             <code className="break-all text-xs">{invoice}</code>
           </div>
         ) : (
-          <div className="flex min-h-72 flex-col items-center justify-center rounded-xl border border-dashed p-5 text-center">
-            <QrCode className="mb-5 size-16 text-muted-foreground" />
-            <h3 className="font-bold">
-              {s("Mã QR sẽ hiện ngay tại đây", "Your QR code will appear here")}
-            </h3>
-            <p className="mt-2 max-w-xs text-sm text-muted-foreground">
-              {s(
-                "Chọn số credit rồi bấm “Tạo mã QR”, mở app ngân hàng và quét.",
-                "Choose credits, click “Create QR”, then scan with your banking app.",
-              )}
-            </p>
-          </div>
+          <TopupSteps
+            title={s("Mã QR sẽ hiện ngay tại đây", "Your QR code will appear here")}
+            steps={[
+              s("Chọn số tiền rồi bấm “Tạo mã QR”.", "Choose an amount and click “Create QR”."),
+              s(
+                "Mở app ngân hàng và quét mã. Số tiền và nội dung đã điền sẵn.",
+                "Scan it with your banking app. Amount and content are prefilled.",
+              ),
+              s(
+                "Credit tự cộng vào ví sau khoảng 1 phút, không cần báo admin.",
+                "Credits arrive automatically in about a minute.",
+              ),
+            ]}
+            footer={s(
+              "Sau 10 phút vẫn chưa thấy cộng? Gửi mã đơn trong Lịch sử nạp cho admin để được hỗ trợ.",
+              "Not credited after 10 minutes? Send the order number from Top-up History to the admin.",
+            )}
+          />
         )}
       </section>
     </div>

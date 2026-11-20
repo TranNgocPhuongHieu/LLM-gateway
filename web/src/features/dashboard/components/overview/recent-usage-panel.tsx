@@ -75,7 +75,10 @@ const DEFAULT_VISIBLE_ROWS = 6;
 // range limits the list and its total to the page's period (admin Overview,
 // titled "Recent requests"); without it the panel shows the latest requests of
 // all time. limit caps the visible rows.
-export function RecentUsagePanel(props: { range?: UnixRange | null; limit?: number } = {}) {
+// excludeInternal hides admin and root accounts' rows (admin endpoint only).
+export function RecentUsagePanel(
+  props: { range?: UnixRange | null; limit?: number; excludeInternal?: boolean } = {},
+) {
   const { t } = useTranslation();
   const userId = useAuthStore((state) => state.auth.user?.id);
   const sessionId = useAuthStore((state) => state.auth.session?.sid);
@@ -110,6 +113,7 @@ export function RecentUsagePanel(props: { range?: UnixRange | null; limit?: numb
       statusFilter,
       props.range?.start_timestamp,
       props.range?.end_timestamp,
+      props.excludeInternal,
     ],
     enabled: Boolean(userId),
     queryFn: async () => {
@@ -123,6 +127,7 @@ export function RecentUsagePanel(props: { range?: UnixRange | null; limit?: numb
             }
           : {}),
         ...(usernameFilter.trim() && useAllEndpoint ? { username: usernameFilter.trim() } : {}),
+        ...(props.excludeInternal && useAllEndpoint ? { exclude_internal: true } : {}),
         ...(modelFilter.trim() ? { model_name: modelFilter.trim() } : {}),
         ...(statusFilter === "error" ? { type: 5 } : statusFilter === "success" ? { type: 2 } : {}),
       };

@@ -40,6 +40,7 @@ function mount(
   role = 1,
   balanceUserId = 1,
   range?: { start_timestamp: number; end_timestamp: number },
+  excludeInternal?: boolean,
 ) {
   mocks.user.role = role;
   const response = {
@@ -68,7 +69,7 @@ function mount(
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   render(
     <QueryClientProvider client={client}>
-      <RecentUsagePanel range={range} />
+      <RecentUsagePanel range={range} excludeInternal={excludeInternal} />
     </QueryClientProvider>,
   );
 }
@@ -118,6 +119,18 @@ describe("dashboard usage and settled balance", () => {
       start_timestamp: 1000,
       end_timestamp: 5000,
     });
+  });
+
+  it("asks the global endpoint to hide internal accounts when requested", async () => {
+    mount(100, 1, undefined, true);
+    expect((await screen.findAllByText("model-test")).length).toBeGreaterThan(0);
+    expect(mocks.all).toHaveBeenCalledWith({ p: 1, page_size: 10, exclude_internal: true });
+  });
+
+  it("never sends the internal-account filter from the private endpoint", async () => {
+    mount(10, 1, undefined, true);
+    expect((await screen.findAllByText("model-test")).length).toBeGreaterThan(0);
+    expect(mocks.self).toHaveBeenCalledWith({ p: 1, page_size: 10 });
   });
 
   it("keeps non-root administrators on their own private log endpoint", async () => {

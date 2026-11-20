@@ -34,8 +34,8 @@ function writeExcludeInternal(value: boolean) {
 // Super admin Overview, top to bottom: pending top-up banner, four KPIs, the
 // credits-consumed chart, top customers next to error causes, and the latest
 // requests. Every panel is system-wide and follows the same range picker.
-// "Hide internal accounts" drops admin and root accounts from usage figures;
-// revenue and signups stay platform-wide.
+// "Hide internal accounts" drops admin and root accounts from usage figures and
+// the request list; revenue and signups stay platform-wide.
 export function AdminOverview(props: { range: TimeRange | null }) {
   const { t } = useTranslation()
   const switchId = useId()
@@ -72,7 +72,7 @@ export function AdminOverview(props: { range: TimeRange | null }) {
         <AdminErrorsCard range={props.range} excludeInternal={excludeInternal} />
       </div>
 
-      <RecentUsagePanel range={unixRange} limit={5} />
+      <RecentUsagePanel range={unixRange} limit={5} excludeInternal={excludeInternal} />
 
       <div className='flex justify-end'>
         <Link

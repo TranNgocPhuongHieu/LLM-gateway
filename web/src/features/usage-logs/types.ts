@@ -398,6 +398,8 @@ export interface GetLogsParams {
   group?: string
   request_id?: string
   upstream_request_id?: string
+  // Admin only: drop admin and root accounts' rows.
+  exclude_internal?: boolean
 }
 
 export interface GetLogsResponse {

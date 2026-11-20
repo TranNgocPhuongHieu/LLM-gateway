@@ -206,7 +206,7 @@ type roundTripFunc func(*http.Request) (*http.Response, error)
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 func TestBuildBinanceQuoteAndUniqueAmount(t *testing.T) {
-	q, err := BuildBinanceQuote(QuoteInput{BaseUSDT: "10", FeePercent: "2.5", USDTToVND: "26000", QuotaPerUnit: "500000", BonusPercent: "10", MinUSDT: "10", MaxUSDT: "1000"})
+	q, err := BuildBinanceQuote(QuoteInput{BaseUSDT: "10", FeePercent: "2.5", USDTToVND: "26000", QuotaPerUnit: "500000", VNDPerUSD: "26000", BonusPercent: "10", MinUSDT: "10", MaxUSDT: "1000"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -220,7 +220,7 @@ func TestBuildBinanceQuoteAndUniqueAmount(t *testing.T) {
 }
 
 func TestBuildBinanceQuoteAddsFeeWithoutGrantingCreditOnFee(t *testing.T) {
-	q, err := BuildBinanceQuote(QuoteInput{BaseUSDT: "20", FeePercent: "2", USDTToVND: "26000", QuotaPerUnit: "500000", BonusPercent: "10", MinUSDT: "10", MaxUSDT: "100"})
+	q, err := BuildBinanceQuote(QuoteInput{BaseUSDT: "20", FeePercent: "2", USDTToVND: "26000", QuotaPerUnit: "500000", VNDPerUSD: "26000", BonusPercent: "10", MinUSDT: "10", MaxUSDT: "100"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,12 +242,38 @@ func TestMockBinanceClientFiltersByNetworkAndTime(t *testing.T) {
 }
 
 func TestBuildBinanceQuoteRoundsPayableUpToCents(t *testing.T) {
-	q, err := BuildBinanceQuote(QuoteInput{BaseUSDT: "13", FeePercent: "2.5", USDTToVND: "26000", QuotaPerUnit: "500000", BonusPercent: "0", MinUSDT: "10", MaxUSDT: "100"})
+	q, err := BuildBinanceQuote(QuoteInput{BaseUSDT: "13", FeePercent: "2.5", USDTToVND: "26000", QuotaPerUnit: "500000", VNDPerUSD: "26000", BonusPercent: "0", MinUSDT: "10", MaxUSDT: "100"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	// 13 + 2.5% = 13.325 -> 13.33; credits stay based on the 13 USDT base.
 	if q.PayableUSDT != "13.330000" || q.AmountUnits != 13_330_000 || q.AmountVND != 338000 || q.Credits != 338 {
 		t.Fatalf("payable not rounded to cents: %+v", q)
+	}
+}
+
+// Regression: a 30 USDT order with a 10% bonus credited only 634 quota because
+// the USDT amount was divided by the USDT/VND rate. It must credit 858 credits
+// worth of quota (858,000 VND at 26,000 VND per USD and 500,000 quota per USD).
+func TestBuildBinanceQuoteCreditsQuotaMatchingCredits(t *testing.T) {
+	q, err := BuildBinanceQuote(QuoteInput{BaseUSDT: "30", FeePercent: "2", USDTToVND: "26000", QuotaPerUnit: "500000", VNDPerUSD: "26000", BonusPercent: "10", MinUSDT: "10", MaxUSDT: "1000"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if q.PayableUSDT != "30.600000" || q.AmountVND != 780000 || q.Credits != 858 || q.Quota != 16_500_000 {
+		t.Fatalf("quota does not match credits: %+v", q)
+	}
+	// The wallet quota follows the site VND/USD rate, not the USDT/VND rate.
+	q, err = BuildBinanceQuote(QuoteInput{BaseUSDT: "10", FeePercent: "0", USDTToVND: "25000", QuotaPerUnit: "500000", VNDPerUSD: "25000", BonusPercent: "0", MinUSDT: "10"})
+	if err != nil || q.Credits != 250 || q.Quota != 5_000_000 {
+		t.Fatalf("unexpected quota with different rates: %+v %v", q, err)
+	}
+}
+
+func TestBuildBinanceQuoteRejectsInvalidVNDPerUSD(t *testing.T) {
+	for _, rate := range []string{"", "0", "-1", "abc"} {
+		if _, err := BuildBinanceQuote(QuoteInput{BaseUSDT: "10", FeePercent: "0", USDTToVND: "26000", QuotaPerUnit: "500000", VNDPerUSD: rate, BonusPercent: "0", MinUSDT: "10"}); err == nil {
+			t.Fatalf("expected error for VND/USD rate %q", rate)
+		}
 	}
 }

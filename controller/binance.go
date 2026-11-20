@@ -49,7 +49,7 @@ func BinanceQuote(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	q, err := service.BuildBinanceQuote(service.QuoteInput{BaseUSDT: req.AmountUSDT, FeePercent: cfg.FeePercent, USDTToVND: cfg.USDTToVND, QuotaPerUnit: decimal.NewFromFloat(common.QuotaPerUnit).String(), BonusPercent: bonus.String(), MinUSDT: cfg.MinUSDT, MaxUSDT: cfg.MaxUSDT})
+	q, err := service.BuildBinanceQuote(service.QuoteInput{BaseUSDT: req.AmountUSDT, FeePercent: cfg.FeePercent, USDTToVND: cfg.USDTToVND, QuotaPerUnit: decimal.NewFromFloat(common.QuotaPerUnit).String(), VNDPerUSD: binanceVNDPerUSD(), BonusPercent: bonus.String(), MinUSDT: cfg.MinUSDT, MaxUSDT: cfg.MaxUSDT})
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -100,7 +100,7 @@ func CreateBinanceOrder(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	q, err := service.BuildBinanceQuote(service.QuoteInput{BaseUSDT: req.AmountUSDT, FeePercent: cfg.FeePercent, USDTToVND: cfg.USDTToVND, QuotaPerUnit: decimal.NewFromFloat(common.QuotaPerUnit).String(), BonusPercent: bonus.String(), MinUSDT: cfg.MinUSDT, MaxUSDT: cfg.MaxUSDT})
+	q, err := service.BuildBinanceQuote(service.QuoteInput{BaseUSDT: req.AmountUSDT, FeePercent: cfg.FeePercent, USDTToVND: cfg.USDTToVND, QuotaPerUnit: decimal.NewFromFloat(common.QuotaPerUnit).String(), VNDPerUSD: binanceVNDPerUSD(), BonusPercent: bonus.String(), MinUSDT: cfg.MinUSDT, MaxUSDT: cfg.MaxUSDT})
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -276,4 +276,10 @@ func BinanceAdminReview(c *gin.Context) {
 	}
 	model.RecordOperationAuditLog(c.GetInt("id"), c.GetInt("role"), "Marked Binance USDT order for manual review", c.ClientIP(), "binance.order.review", map[string]any{"trade_no": c.Param("trade_no")}, nil, nil, c)
 	common.ApiSuccess(c, gin.H{"status": model.BinanceOrderReview})
+}
+
+// binanceVNDPerUSD returns the site's display rate used to turn credited VND
+// into wallet quota, matching the SePay conversion.
+func binanceVNDPerUSD() string {
+	return decimal.NewFromFloat(operation_setting.GetUsdToCurrencyRate(operation_setting.USDExchangeRate)).String()
 }

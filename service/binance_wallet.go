@@ -150,6 +150,9 @@ type QuoteInput struct {
 	FeePercent   string
 	USDTToVND    string
 	QuotaPerUnit string
+	// VNDPerUSD is the site's display rate (VND per quota USD), the same rate
+	// SePay uses to convert credited VND into wallet quota.
+	VNDPerUSD    string
 	BonusPercent string
 	MinUSDT      string
 	MaxUSDT      string
@@ -178,6 +181,10 @@ func BuildBinanceQuote(in QuoteInput) (Quote, error) {
 	if err != nil || !qpu.IsPositive() {
 		return Quote{}, errors.New("invalid quota rate")
 	}
+	vndPerUSD, err := decimal.NewFromString(in.VNDPerUSD)
+	if err != nil || !vndPerUSD.IsPositive() {
+		return Quote{}, errors.New("invalid VND/USD rate")
+	}
 	min, err := decimal.NewFromString(in.MinUSDT)
 	if err != nil || base.LessThan(min) {
 		return Quote{}, errors.New("USDT amount below minimum")
@@ -201,9 +208,9 @@ func BuildBinanceQuote(in QuoteInput) (Quote, error) {
 	bonusVND := decimal.NewFromInt(baseVND).Mul(bonus).Div(decimal.NewFromInt(100)).RoundDown(0).IntPart()
 	credits := (baseVND + bonusVND) / 1000
 	// Wallet quota is the internal USD-denominated unit. Keep the public
-	// invariant (1 credit = 1,000 VND) while converting through the snapshotted
-	// USDT/VND rate and quota-per-USD value.
-	quota := base.Mul(qpu).Div(rate).Mul(decimal.NewFromInt(100).Add(bonus).Div(decimal.NewFromInt(100))).IntPart()
+	// invariant (1 credit = 1,000 VND): convert the credited VND (base + bonus)
+	// to quota through the site's VND/USD rate, exactly like SePay does.
+	quota := decimal.NewFromInt(baseVND + bonusVND).Mul(qpu).Div(vndPerUSD).IntPart()
 	if units <= 0 || baseVND <= 0 || credits <= 0 || quota <= 0 {
 		return Quote{}, errors.New("quote is not creditable")
 	}

@@ -12,14 +12,17 @@ import { useAdminErrorSummary } from './use-admin-overview'
 
 // System-wide error causes. Customer fix hints (top up, raise key quota) do not
 // apply to operators, so only the cause title and the counts are shown.
-export function AdminErrorsCard(props: { range: TimeRange | null }) {
+export function AdminErrorsCard(props: {
+  range: TimeRange | null
+  excludeInternal?: boolean
+}) {
   const { t, i18n } = useTranslation()
   const locale = resolveAppLocale(i18n.resolvedLanguage || i18n.language)
   const unixRange = useMemo(
     () => (props.range ? toUnixRange(props.range) : null),
     [props.range]
   )
-  const query = useAdminErrorSummary(unixRange)
+  const query = useAdminErrorSummary(unixRange, props.excludeInternal)
   const categories: SelfErrorCategoryItem[] = query.data?.categories ?? []
 
   let body: React.ReactNode
@@ -76,8 +79,16 @@ export function AdminErrorsCard(props: { range: TimeRange | null }) {
       </div>
       <div className='mt-3'>{body}</div>
       {query.data?.truncated && (
-        <p className={cn('text-muted-foreground mt-3 text-xs')}>
-          {t('Showing the most recent errors only; older errors are not counted.')}
+        <p
+          role='note'
+          className={cn(
+            'border-warning/40 bg-warning/10 text-foreground mt-3 rounded-lg border px-3 py-2 text-xs'
+          )}
+        >
+          {t(
+            'Counts cover only the {{count}} most recent errors in this period; older errors are not grouped here.',
+            { count: formatNumber(query.data.total, locale) }
+          )}
         </p>
       )}
     </section>

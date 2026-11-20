@@ -14,6 +14,8 @@ import { requireServerSuccess } from "@/lib/server-error-message";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
 
+import type { UnixRange } from "./overview-time-range";
+
 const balanceSchema = z.object({
   id: z.number(),
   quota: z.number().finite(),
@@ -62,7 +64,9 @@ export function useDashboardBalance(enabled = true) {
   return query;
 }
 
-export function RecentUsagePanel() {
+// range limits the list and its total to the page's period (admin Overview);
+// without it the panel shows the latest requests of all time.
+export function RecentUsagePanel(props: { range?: UnixRange | null } = {}) {
   const { t } = useTranslation();
   const userId = useAuthStore((state) => state.auth.user?.id);
   const sessionId = useAuthStore((state) => state.auth.session?.sid);
@@ -95,12 +99,20 @@ export function RecentUsagePanel() {
       usernameFilter,
       modelFilter,
       statusFilter,
+      props.range?.start_timestamp,
+      props.range?.end_timestamp,
     ],
     enabled: Boolean(userId),
     queryFn: async () => {
       const params = {
         page_size: 10,
         p: 1,
+        ...(props.range
+          ? {
+              start_timestamp: props.range.start_timestamp,
+              end_timestamp: props.range.end_timestamp,
+            }
+          : {}),
         ...(usernameFilter.trim() && useAllEndpoint ? { username: usernameFilter.trim() } : {}),
         ...(modelFilter.trim() ? { model_name: modelFilter.trim() } : {}),
         ...(statusFilter === "error" ? { type: 5 } : statusFilter === "success" ? { type: 2 } : {}),

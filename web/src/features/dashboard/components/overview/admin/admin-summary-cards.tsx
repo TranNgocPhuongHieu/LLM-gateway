@@ -2,8 +2,12 @@ import { Link } from '@tanstack/react-router'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { formatQuotaWithCredit, resolveAppLocale } from '@/lib/currency'
-import { formatNumber, formatPercent, quotaUnitsToDollars } from '@/lib/format'
+import {
+  formatCreditPrice,
+  formatQuotaWithCredit,
+  resolveAppLocale,
+} from '@/lib/currency'
+import { formatNumber, formatPercent } from '@/lib/format'
 
 import type { AdminTopupMethodStat } from '../../../types'
 import { VND_PER_CREDIT } from '../credit-vnd'
@@ -40,19 +44,22 @@ function formatMethodAmount(
     : `${label} ${amount} ${currency}`
 }
 
-// Quota stored in the ledger, shown as credits with the VND equivalent.
-function creditsToVnd(quota: number): number {
-  return Math.round(quotaUnitsToDollars(quota) * VND_PER_CREDIT)
+// VND amounts from the orders, shown as credits at the site rate.
+function formatVndAsCredits(vnd: number): string {
+  return formatCreditPrice(vnd / VND_PER_CREDIT, CREDIT_FORMAT)
 }
 
-export function AdminSummaryCards(props: { range: TimeRange | null }) {
+export function AdminSummaryCards(props: {
+  range: TimeRange | null
+  excludeInternal?: boolean
+}) {
   const { t, i18n } = useTranslation()
   const locale = resolveAppLocale(i18n.resolvedLanguage || i18n.language)
   const unixRange = useMemo(
     () => (props.range ? toUnixRange(props.range) : null),
     [props.range]
   )
-  const query = useAdminSummary(unixRange)
+  const query = useAdminSummary(unixRange, props.excludeInternal)
   const data = query.data
 
   if (!props.range) {
@@ -77,13 +84,15 @@ export function AdminSummaryCards(props: { range: TimeRange | null }) {
 
   return (
     <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-5'>
+      {/* Money customers paid (SePay VND, USDT at the order rate), not the
+          credited quota: bonus credits are not revenue. */}
       <KpiCard
-        label={t('Revenue')}
-        value={formatQuotaWithCredit(topup.credited_quota, CREDIT_FORMAT)}
+        label={t('Top-up revenue')}
+        value={formatVndAsCredits(topup.paid_vnd)}
       >
         <span className='text-muted-foreground text-xs tabular-nums'>
           {t('≈ {{amount}} VND', {
-            amount: formatNumber(creditsToVnd(topup.credited_quota), locale),
+            amount: formatNumber(topup.paid_vnd, locale),
           })}
         </span>
         {topup.by_method.length > 0 && (
@@ -94,6 +103,13 @@ export function AdminSummaryCards(props: { range: TimeRange | null }) {
               </li>
             ))}
           </ul>
+        )}
+        {topup.bonus_vnd > 0 && (
+          <span className='text-muted-foreground text-xs tabular-nums'>
+            {t('+ {{amount}} bonus granted', {
+              amount: formatVndAsCredits(topup.bonus_vnd),
+            })}
+          </span>
         )}
       </KpiCard>
 

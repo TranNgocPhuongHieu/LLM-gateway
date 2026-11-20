@@ -22,12 +22,22 @@ type FlowQuotaData struct {
 	Quota       int    `json:"quota" gorm:"column:quota"`
 }
 
-func GetFlowQuotaData(startTime int64, endTime int64, username string, userID int, role int) ([]*FlowQuotaData, error) {
+// excludeInternal drops admin and root accounts (internalUserIDs) from the
+// admin and root views; the self view ignores it.
+func GetFlowQuotaData(startTime int64, endTime int64, username string, userID int, role int, excludeInternal bool) ([]*FlowQuotaData, error) {
+	var excludeIDs []int
+	if excludeInternal && role >= common.RoleAdminUser {
+		ids, err := internalUserIDs()
+		if err != nil {
+			return nil, err
+		}
+		excludeIDs = ids
+	}
 	switch {
 	case role >= common.RoleRootUser:
-		return getRootFlowQuotaData(startTime, endTime, username)
+		return getRootFlowQuotaData(startTime, endTime, username, excludeIDs)
 	case role >= common.RoleAdminUser:
-		return getAdminFlowQuotaData(startTime, endTime, username)
+		return getAdminFlowQuotaData(startTime, endTime, username, excludeIDs)
 	default:
 		return getSelfFlowQuotaData(startTime, endTime, userID)
 	}
@@ -54,14 +64,14 @@ func getSelfFlowQuotaData(startTime int64, endTime int64, userID int) ([]*FlowQu
 	return rows, fillFlowTokenNames(rows)
 }
 
-func getAdminFlowQuotaData(startTime int64, endTime int64, username string) ([]*FlowQuotaData, error) {
+func getAdminFlowQuotaData(startTime int64, endTime int64, username string, excludeIDs []int) ([]*FlowQuotaData, error) {
 	rows := make([]*FlowQuotaData, 0)
 	query := flowQuotaBaseQuery(startTime, endTime).
 		Select("user_id, username, token_id, use_group, model_name, channel_id, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used")
 	if username != "" {
 		query = query.Where("username = ?", username)
 	}
-	err := query.
+	err := excludeUserIDs(query, excludeIDs).
 		Group("user_id, username, token_id, use_group, model_name, channel_id").
 		Order("quota DESC").
 		Find(&rows).Error
@@ -74,14 +84,14 @@ func getAdminFlowQuotaData(startTime int64, endTime int64, username string) ([]*
 	return rows, fillFlowChannelNames(rows)
 }
 
-func getRootFlowQuotaData(startTime int64, endTime int64, username string) ([]*FlowQuotaData, error) {
+func getRootFlowQuotaData(startTime int64, endTime int64, username string, excludeIDs []int) ([]*FlowQuotaData, error) {
 	rows := make([]*FlowQuotaData, 0)
 	query := flowQuotaBaseQuery(startTime, endTime).
 		Select("user_id, username, node_name, token_id, use_group, model_name, channel_id, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used")
 	if username != "" {
 		query = query.Where("username = ?", username)
 	}
-	err := query.
+	err := excludeUserIDs(query, excludeIDs).
 		Group("user_id, username, node_name, token_id, use_group, model_name, channel_id").
 		Order("quota DESC").
 		Find(&rows).Error

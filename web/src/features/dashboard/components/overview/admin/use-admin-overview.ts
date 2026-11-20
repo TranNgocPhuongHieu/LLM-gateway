@@ -29,8 +29,12 @@ function useAdminScope() {
   return { userId, sessionId }
 }
 
-// System-wide KPIs for the super admin Overview.
-export function useAdminSummary(range: UnixRange | null) {
+// System-wide KPIs for the super admin Overview. excludeInternal hides admin
+// and root accounts from the usage figures (see the backend summary).
+export function useAdminSummary(
+  range: UnixRange | null,
+  excludeInternal = false
+) {
   const { userId, sessionId } = useAdminScope()
   return useQuery({
     queryKey: [
@@ -41,12 +45,15 @@ export function useAdminSummary(range: UnixRange | null) {
       sessionId,
       range?.start_timestamp,
       range?.end_timestamp,
+      excludeInternal,
     ],
     enabled: Boolean(userId && range),
     queryFn: async (): Promise<AdminSummaryData> => {
       if (!range) throw new Error('Missing range')
       const bounded = clampRangeSpan(range, BREAKDOWN_MAX_SPAN_SECONDS)
-      const result = requireServerSuccess(await getAdminSummary(bounded))
+      const result = requireServerSuccess(
+        await getAdminSummary({ ...bounded, exclude_internal: excludeInternal })
+      )
       if (!result.data) throw new Error('Missing admin summary data')
       return result.data
     },
@@ -57,7 +64,10 @@ export function useAdminSummary(range: UnixRange | null) {
 }
 
 // System-wide error categories for the super admin Overview.
-export function useAdminErrorSummary(range: UnixRange | null) {
+export function useAdminErrorSummary(
+  range: UnixRange | null,
+  excludeInternal = false
+) {
   const { userId, sessionId } = useAdminScope()
   return useQuery({
     queryKey: [
@@ -68,12 +78,18 @@ export function useAdminErrorSummary(range: UnixRange | null) {
       sessionId,
       range?.start_timestamp,
       range?.end_timestamp,
+      excludeInternal,
     ],
     enabled: Boolean(userId && range),
     queryFn: async (): Promise<SelfErrorSummaryData> => {
       if (!range) throw new Error('Missing range')
       const bounded = clampRangeSpan(range, BREAKDOWN_MAX_SPAN_SECONDS)
-      const result = requireServerSuccess(await getAdminErrorSummary(bounded))
+      const result = requireServerSuccess(
+        await getAdminErrorSummary({
+          ...bounded,
+          exclude_internal: excludeInternal,
+        })
+      )
       return result.data ?? { total: 0, truncated: false, categories: [] }
     },
     staleTime: STALE_TIME_MS,
@@ -85,7 +101,10 @@ export function useAdminErrorSummary(range: UnixRange | null) {
 // System-wide hourly rows (all users) used by the daily spend and distribution
 // charts. Each call is capped at the /api/data span limit, so longer ranges are
 // fetched in consecutive non-overlapping chunks.
-export function useAdminHourlyUsage(range: UnixRange | null) {
+export function useAdminHourlyUsage(
+  range: UnixRange | null,
+  excludeInternal = false
+) {
   const { userId, sessionId } = useAdminScope()
   return useQuery({
     queryKey: [
@@ -96,6 +115,7 @@ export function useAdminHourlyUsage(range: UnixRange | null) {
       sessionId,
       range?.start_timestamp,
       range?.end_timestamp,
+      excludeInternal,
     ],
     enabled: Boolean(userId && range),
     queryFn: async (): Promise<QuotaDataItem[]> => {
@@ -103,7 +123,14 @@ export function useAdminHourlyUsage(range: UnixRange | null) {
       const rows: QuotaDataItem[] = []
       for (const chunk of splitUnixRange(range, SELF_DATA_MAX_SPAN_SECONDS)) {
         const result = requireServerSuccess(
-          await getUserQuotaDates({ ...chunk, default_time: 'hour' }, true)
+          await getUserQuotaDates(
+            {
+              ...chunk,
+              default_time: 'hour',
+              exclude_internal: excludeInternal,
+            },
+            true
+          )
         )
         rows.push(...(result.data ?? []))
       }

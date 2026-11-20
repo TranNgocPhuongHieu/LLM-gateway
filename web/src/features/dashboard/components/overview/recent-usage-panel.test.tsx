@@ -36,7 +36,11 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function mount(role = 1, balanceUserId = 1) {
+function mount(
+  role = 1,
+  balanceUserId = 1,
+  range?: { start_timestamp: number; end_timestamp: number },
+) {
   mocks.user.role = role;
   const response = {
     success: true,
@@ -64,7 +68,7 @@ function mount(role = 1, balanceUserId = 1) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   render(
     <QueryClientProvider client={client}>
-      <RecentUsagePanel />
+      <RecentUsagePanel range={range} />
     </QueryClientProvider>,
   );
 }
@@ -101,6 +105,17 @@ describe("dashboard usage and settled balance", () => {
     expect(mocks.all).toHaveBeenCalledWith({ p: 1, page_size: 10 });
     expect(mocks.self).not.toHaveBeenCalled();
     expect(screen.queryByText("private-channel")).toBeNull();
+  });
+
+  it("limits global logs to the page range when one is given", async () => {
+    mount(100, 1, { start_timestamp: 1000, end_timestamp: 5000 });
+    expect((await screen.findAllByText("model-test")).length).toBeGreaterThan(0);
+    expect(mocks.all).toHaveBeenCalledWith({
+      p: 1,
+      page_size: 10,
+      start_timestamp: 1000,
+      end_timestamp: 5000,
+    });
   });
 
   it("keeps non-root administrators on their own private log endpoint", async () => {

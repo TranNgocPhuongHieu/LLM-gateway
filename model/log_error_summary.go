@@ -148,18 +148,27 @@ func GetUserErrorSummary(userId int, startTimestamp int64, endTimestamp int64) (
 }
 
 // GetErrorSummary is the system-wide variant of GetUserErrorSummary. userId 0
-// means all users; any other value filters to that user exactly as the
-// self-service endpoint does.
-func GetErrorSummary(userId int, startTimestamp int64, endTimestamp int64) (*ErrorSummary, error) {
-	if userId == 0 {
-		return getErrorSummary(nil, startTimestamp, endTimestamp)
+// means all users, minus admin and root accounts when excludeInternal is set;
+// any other value filters to that user exactly as the self-service endpoint
+// does and ignores excludeInternal.
+func GetErrorSummary(userId int, startTimestamp int64, endTimestamp int64, excludeInternal bool) (*ErrorSummary, error) {
+	if userId != 0 {
+		return getErrorSummary(&userId, startTimestamp, endTimestamp)
 	}
-	return getErrorSummary(&userId, startTimestamp, endTimestamp)
+	var excludeIDs []int
+	if excludeInternal {
+		ids, err := internalUserIDs()
+		if err != nil {
+			return nil, err
+		}
+		excludeIDs = ids
+	}
+	return getErrorSummary(nil, startTimestamp, endTimestamp, excludeIDs...)
 }
 
 // getErrorSummary keeps the newest errorSummaryRowLimit terminal error rows,
-// restricted to userId when it is non-nil.
-func getErrorSummary(userId *int, startTimestamp int64, endTimestamp int64) (*ErrorSummary, error) {
+// restricted to userId when it is non-nil and without excludeIDs' rows.
+func getErrorSummary(userId *int, startTimestamp int64, endTimestamp int64, excludeIDs ...int) (*ErrorSummary, error) {
 	order := "created_at desc, id desc"
 	if common.UsingLogDatabase(common.DatabaseTypeClickHouse) {
 		order = clickHouseLogOrder("")
@@ -170,7 +179,7 @@ func getErrorSummary(userId *int, startTimestamp int64, endTimestamp int64) (*Er
 	if userId != nil {
 		tx = tx.Where("user_id = ?", *userId)
 	}
-	tx = hideIntermediateRelayErrors(tx, "")
+	tx = hideIntermediateRelayErrors(excludeUserIDs(tx, excludeIDs), "")
 
 	var rows []*Log
 	if err := tx.Order(order).Limit(errorSummaryRowLimit + 1).Find(&rows).Error; err != nil {

@@ -320,11 +320,18 @@ export interface AdminTopupMethodStat {
   // Native amount in `currency` (e.g. VND, USDT), not quota.
   amount: number
   count: number
+  // Money paid in VND before bonus, and the bonus credited on top, in VND.
+  // Only SePay and USDT orders carry them; other methods report 0.
+  paid_vnd: number
+  bonus_vnd: number
 }
 
 export interface AdminSummaryData {
   topup: {
+    // Quota credited to wallets (includes bonus). Prefer paid_vnd for revenue.
     credited_quota: number
+    paid_vnd: number
+    bonus_vnd: number
     count: number
     pending_count: number
     by_method: AdminTopupMethodStat[]
@@ -338,5 +345,9 @@ export interface AdminSummaryData {
   requests: {
     total: number
     errors: number
+  }
+  usage: {
+    // Quota charged on successful requests.
+    consumed_quota: number
   }
 }

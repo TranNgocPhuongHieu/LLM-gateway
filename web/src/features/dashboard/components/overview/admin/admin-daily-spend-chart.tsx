@@ -14,7 +14,10 @@ const TOP_MODEL_COUNT = 5
 
 // System-wide daily spend stacked by model. Same chart as the customer
 // "Daily cost" card, fed by all users' hourly rows.
-export function AdminDailySpendChart(props: { range: TimeRange | null }) {
+export function AdminDailySpendChart(props: {
+  range: TimeRange | null
+  excludeInternal?: boolean
+}) {
   const { t, i18n } = useTranslation()
   const { resolvedTheme, themeReady } = useChartTheme()
   const locale = resolveAppLocale(i18n.resolvedLanguage || i18n.language)
@@ -23,7 +26,7 @@ export function AdminDailySpendChart(props: { range: TimeRange | null }) {
     () => (range ? toUnixRange(range) : null),
     [range]
   )
-  const query = useAdminHourlyUsage(unixRange)
+  const query = useAdminHourlyUsage(unixRange, props.excludeInternal)
 
   const series = useMemo(
     () =>

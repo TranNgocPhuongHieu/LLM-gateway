@@ -45,6 +45,8 @@ export async function getUserQuotaDates(
     end_timestamp: number
     default_time?: string
     username?: string
+    // Admin only: drop admin and root accounts.
+    exclude_internal?: boolean
   },
   isAdmin = false
 ) {
@@ -82,9 +84,11 @@ export async function getSelfErrorSummary(params: {
 }
 
 // System-wide top-up, signup, user and request totals (root admin only).
+// exclude_internal hides admin and root accounts from the usage figures.
 export async function getAdminSummary(params: {
   start_timestamp: number
   end_timestamp: number
+  exclude_internal?: boolean
 }) {
   const res = await api.get<SelfApiResponse<AdminSummaryData>>(
     '/api/data/admin_summary',
@@ -97,6 +101,7 @@ export async function getAdminSummary(params: {
 export async function getAdminErrorSummary(params: {
   start_timestamp: number
   end_timestamp: number
+  exclude_internal?: boolean
 }) {
   const res = await api.get<SelfApiResponse<SelfErrorSummaryData>>(
     '/api/log/error_summary',
@@ -127,6 +132,8 @@ export async function getFlowQuotaDates(
     end_timestamp: number
     default_time?: string
     username?: string
+    // Root only: drop admin and root accounts.
+    exclude_internal?: boolean
   },
   isAdmin = false
 ) {

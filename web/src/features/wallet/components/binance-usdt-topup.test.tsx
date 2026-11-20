@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BinanceUsdtTopup } from "./binance-usdt-topup";
+import { BinanceUsdtTopup, usdtBonusPercent } from "./binance-usdt-topup";
 
 const mocks = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
 // react-i18next returns a stable t; an unstable mock would re-run effects forever.
@@ -54,5 +54,41 @@ describe("USDT checkout", () => {
     expect((await screen.findByTestId("qr")).textContent).toBe(address);
     fireEvent.click(screen.getByRole("button", { name: "Copy amount" }));
     expect(writeText).toHaveBeenCalledWith("10.2");
+  });
+
+  it("shows the bonus tiers and the bonus credits on each preset", async () => {
+    const tiers = [
+      { min_usdt: "10", max_usdt: "20", bonus_percent: "0" },
+      { min_usdt: "20", max_usdt: "50", bonus_percent: "10" },
+      { min_usdt: "50", max_usdt: "100", bonus_percent: "15" },
+      { min_usdt: "100", bonus_percent: "20" },
+    ];
+    mocks.get.mockResolvedValue({
+      data: { success: true, data: { ...topupInfo.data.data, binance_usdt_to_vnd: "26000", binance_bonus_tiers: tiers } },
+    });
+    mocks.post.mockResolvedValue({ data: { success: false, message: "x" } });
+    render(<BinanceUsdtTopup onPaid={() => {}} />);
+    expect((await screen.findByTestId("usdt-bonus-tiers")).textContent).toBe(
+      "Bonus tiers: from 20 USDT +10% · from 50 USDT +15% · from 100 USDT +20%",
+    );
+    const label = (name: string) => screen.getByRole("button", { name: new RegExp(`^${name} USDT`) }).textContent;
+    expect(label("10")).toBe("10 USDTNo bonus");
+    expect(label("20")).toBe("20 USDT+52 credit bonus");
+    expect(label("50")).toBe("50 USDT+195 credit bonus");
+    expect(label("100")).toBe("100 USDT+520 credit bonus");
+  });
+
+  it("picks the bonus tier like the server", () => {
+    const tiers = [
+      { min_usdt: "10", max_usdt: "20", bonus_percent: "0" },
+      { min_usdt: "20", max_usdt: "50", bonus_percent: "10" },
+      { min_usdt: "100", bonus_percent: "20" },
+    ];
+    expect(usdtBonusPercent(9, tiers)).toBe(0);
+    expect(usdtBonusPercent(19.99, tiers)).toBe(0);
+    expect(usdtBonusPercent(20, tiers)).toBe(10);
+    expect(usdtBonusPercent(60, tiers)).toBe(0);
+    expect(usdtBonusPercent(1000, tiers)).toBe(20);
+    expect(usdtBonusPercent(30, [])).toBe(0);
   });
 });

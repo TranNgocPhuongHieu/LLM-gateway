@@ -30,9 +30,12 @@ describe("inline SePay bank QR top-up", () => {
     expect(validSepayAmount(1000000)).toBe(true);
     expect(validSepayAmount(999)).toBe(false);
     expect(validSepayAmount(1500)).toBe(false);
-    expect(sepayBonusPercent(100000)).toBe(10);
-    expect(sepayBonusPercent(150000)).toBe(10);
-    expect(sepayBonusPercent(1000000)).toBe(30);
+    expect(sepayBonusPercent(99000)).toBe(0);
+    expect(sepayBonusPercent(100000)).toBe(5);
+    expect(sepayBonusPercent(150000)).toBe(5);
+    expect(sepayBonusPercent(200000)).toBe(7.5);
+    expect(sepayBonusPercent(500000)).toBe(10);
+    expect(sepayBonusPercent(1000000)).toBe(15);
   });
   it("renders the new two-panel wallet layout", async () => {
     mocks.get.mockResolvedValue({

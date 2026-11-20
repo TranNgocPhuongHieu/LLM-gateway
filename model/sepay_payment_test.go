@@ -187,13 +187,15 @@ func TestSepayPromotionTiers(t *testing.T) {
 		want   int64
 	}{
 		{10_000, 0, 10_000},
-		{150_000, 10, 165_000},
-		{100_000, 10, 110_000},
-		{200_000, 15, 230_000},
-		{500_000, 20, 600_000},
-		{1_000_000, 30, 1_300_000},
+		{99_000, 0, 99_000},
+		{150_000, 50, 157_500},
+		{100_000, 50, 105_000},
+		{200_000, 75, 215_000},
+		{213_000, 75, 228_975},
+		{500_000, 100, 550_000},
+		{1_000_000, 150, 1_150_000},
 	} {
-		if got := SepayBonusPercent(tc.amount); got != tc.bonus {
+		if got := SepayBonusPermille(tc.amount); got != tc.bonus {
 			t.Fatalf("bonus for %d: got %d want %d", tc.amount, got, tc.bonus)
 		}
 		if got := sepayCreditedVND(tc.amount); got != tc.want {

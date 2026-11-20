@@ -243,7 +243,7 @@ describe('AdminOverview', () => {
     expect(screen.queryByText(/44,200/)).toBeNull()
   })
 
-  it('caps very large period changes', async () => {
+  it('labels a rise from an almost empty previous period as new', async () => {
     const currentStart = Math.floor(range.start.getTime() / 1000)
     mocks.summary.mockImplementation(async (params: { start_timestamp: number }) => ({
       success: true,
@@ -254,8 +254,9 @@ describe('AdminOverview', () => {
     }))
     renderOverview()
 
-    // 2,000 vs 10 requests = +19,900%.
-    expect(await screen.findByText('▲ >999%')).toBeTruthy()
+    // 2,000 vs 10 requests = +19,900%: no percentage is shown.
+    expect(await screen.findByText('New')).toBeTruthy()
+    expect(screen.queryByText(/999%|19,900/)).toBeNull()
   })
 
   it('compares each KPI with the previous period and flags a high error rate', async () => {
@@ -323,12 +324,11 @@ describe('AdminOverview', () => {
     )
   })
 
-  it('links to model analytics and drops the duplicate distribution chart', async () => {
+  it('drops the duplicate distribution chart and the models link', async () => {
     renderOverview()
 
-    const link = await screen.findByText('View model call analytics on the Models tab')
-    expect(link.closest('a')?.getAttribute('href')).toBe('/dashboard/$section')
-    expect(screen.getByText('Credits consumed')).toBeTruthy()
+    expect(await screen.findByText('Credits consumed')).toBeTruthy()
+    expect(screen.queryByText('View model call analytics on the Models tab')).toBeNull()
     expect(screen.queryByText('Quota Distribution')).toBeNull()
     expect(screen.getByText(/^usage-tracking/)).toBeTruthy()
     expect(screen.getByText(/^recent-usage/)).toBeTruthy()

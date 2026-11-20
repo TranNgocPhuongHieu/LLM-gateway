@@ -142,6 +142,11 @@ export function AdminDailySpendChart(props: {
               { abbreviate: false, digitsLarge: 2, digitsSmall: 4 }
             ),
           })}
+          {/* quota_data is flushed from memory every few minutes
+              (DataExportInterval), so the latest requests show up late and the
+              total can trail the log-based KPI cards. */}
+          {' · '}
+          {t('Updates every few minutes')}
         </span>
       </div>
       <div className='mt-3 min-h-[280px]'>{body}</div>

@@ -83,7 +83,7 @@ func TestUsageLogQueriesHideIntermediateRetryErrorsAndProtectChannelData(t *test
 		}
 	}
 
-	adminLogs, adminTotal, err := GetAllLogs(LogTypeUnknown, 0, 0, "", "", "", 0, 50, 0, "", "", "")
+	adminLogs, adminTotal, err := GetAllLogs(LogTypeUnknown, 0, 0, "", "", "", 0, 50, 0, "", "", "", false)
 	if err != nil {
 		t.Fatal(err)
 	}

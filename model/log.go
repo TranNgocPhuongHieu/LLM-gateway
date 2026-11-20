@@ -461,7 +461,7 @@ type RecordTaskBillingLogParams struct {
 	NodeName  string // 任务发起节点；为空时回退当前节点
 }
 
-func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, startIdx int, num int, channel int, group string, requestId string, upstreamRequestId string) (logs []*Log, total int64, err error) {
+func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, startIdx int, num int, channel int, group string, requestId string, upstreamRequestId string, excludeInternal bool) (logs []*Log, total int64, err error) {
 	var tx *gorm.DB
 	if logType == LogTypeUnknown {
 		tx = LOG_DB
@@ -469,6 +469,14 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 		tx = LOG_DB.Where("logs.type = ?", logType)
 	}
 	tx = hideIntermediateRelayErrors(tx, "logs.")
+	// excludeInternal drops admin and root accounts' rows (admin Overview).
+	if excludeInternal {
+		ids, idsErr := internalUserIDs()
+		if idsErr != nil {
+			return nil, 0, idsErr
+		}
+		tx = excludeUserIDs(tx, ids)
+	}
 
 	if tx, err = applyExplicitLogTextFilter(tx, "logs.model_name", modelName); err != nil {
 		return nil, 0, err

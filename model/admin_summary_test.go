@@ -305,6 +305,28 @@ func TestGetAdminSummaryExcludeInternalDropsAdminUsage(t *testing.T) {
 	if own.Total != 1 {
 		t.Fatalf("user 1 error total = %d, want 1", own.Total)
 	}
+
+	// The admin log list follows the same filter.
+	countByInternal := func(excludeInternal bool) (internal, customer int) {
+		t.Helper()
+		logs, _, err := GetAllLogs(LogTypeUnknown, 1000, 5000, "", "", "", 0, 100, 0, "", "", "", excludeInternal)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, log := range logs {
+			if log.UserId == 1 || log.UserId == 4 {
+				internal++
+			} else {
+				customer++
+			}
+		}
+		return internal, customer
+	}
+	allInternal, allCustomer := countByInternal(false)
+	keptInternal, keptCustomer := countByInternal(true)
+	if allInternal == 0 || keptInternal != 0 || keptCustomer == 0 || keptCustomer != allCustomer {
+		t.Fatalf("log rows internal/customer: all %d/%d, excluded %d/%d", allInternal, allCustomer, keptInternal, keptCustomer)
+	}
 }
 
 func TestGetErrorSummarySystemWideAndSelfUnchanged(t *testing.T) {

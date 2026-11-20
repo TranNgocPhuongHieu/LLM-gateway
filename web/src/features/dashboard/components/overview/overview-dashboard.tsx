@@ -73,6 +73,7 @@ import { OverviewRangePicker } from './overview-range-picker'
 import {
   resolveRangeState,
   toLocalDateKey,
+  toUnixRange,
   type RangeState,
 } from './overview-time-range'
 import { RecentErrorsCard } from './recent-errors-card'
@@ -486,6 +487,10 @@ export function OverviewDashboard() {
     () => resolveRangeState(rangeState, now),
     [rangeState, now]
   )
+  const resolvedUnixRange = useMemo(
+    () => (resolvedRange.range ? toUnixRange(resolvedRange.range) : null),
+    [resolvedRange.range]
+  )
   const [manualSetupGuideExpanded, setManualSetupGuideExpanded] = useState<
     boolean | null
   >(() => getSavedSetupGuideExpanded())
@@ -674,7 +679,7 @@ export function OverviewDashboard() {
           ) : (
             <>
               <LowBalanceBanner />
-              <SummaryCards />
+              <SummaryCards range={resolvedRange.range} />
 
               <div id={setupGuideId} hidden={!setupGuideExpanded}>
                 {setupGuideExpanded && (
@@ -768,7 +773,7 @@ export function OverviewDashboard() {
                 <RecentErrorsCard range={resolvedRange.range} />
               </div>
 
-              <RecentUsagePanel />
+              <RecentUsagePanel range={resolvedUnixRange} limit={5} />
             </>
           )}
         </div>

@@ -1,54 +1,49 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { formatQuotaWithCredit, resolveAppLocale } from '@/lib/currency'
 import { quotaUnitsToDollars } from '@/lib/format'
 import { useChartTheme } from '@/lib/use-chart-theme'
 import { VChart, VCHART_OPTION, type ISpec } from '@/lib/vchart'
-import { cn } from '@/lib/utils'
 
-import { buildDailyCostSeries, getBreakdownRows } from './overview-metrics'
+import { modelColors } from './model-colors'
+import { buildDailyCostSeries } from './overview-metrics'
 import {
+  isSingleLocalDay,
   toUnixRange,
   type TimeRange,
 } from './overview-time-range'
-import { useSelfBreakdown, useSelfDailyUsage } from './use-overview-usage'
+import { useSelfDailyUsage } from './use-overview-usage'
 
 const TOP_MODEL_COUNT = 5
-type CostView = 'model' | 'key'
 
+// The customer's spend, stacked by the top models plus "Other". A single-day
+// range is drawn per hour, longer ranges per day; model colors follow the
+// model name, as on the admin chart. The per-key split lives in
+// SpendBreakdownCard.
 export function DailyCostChart(props: { range: TimeRange | null }) {
   const { t, i18n } = useTranslation()
-  const [view, setView] = useState<CostView>('model')
   const { resolvedTheme, themeReady } = useChartTheme()
   const locale = resolveAppLocale(i18n.resolvedLanguage || i18n.language)
   const range = props.range
   const unixRange = useMemo(() => (range ? toUnixRange(range) : null), [range])
-
-  const dailyQuery = useSelfDailyUsage(view === 'model' ? unixRange : null)
-  const keyQuery = useSelfBreakdown(view === 'key' ? unixRange : null, 'token')
+  const query = useSelfDailyUsage(unixRange)
+  const hourly = range ? isSingleLocalDay(range) : false
+  const otherLabel = t('Other')
 
   const series = useMemo(
     () =>
-      range && dailyQuery.data
-        ? buildDailyCostSeries(dailyQuery.data, range, {
+      range && query.data
+        ? buildDailyCostSeries(query.data, range, {
             topN: TOP_MODEL_COUNT,
-            otherLabel: t('Other'),
+            otherLabel,
             unknownModelLabel: '-',
             toCredits: quotaUnitsToDollars,
+            granularity: hourly ? 'hour' : 'day',
           })
         : null,
-    [dailyQuery.data, range, t]
+    [query.data, range, otherLabel, hourly]
   )
-
-  const keyRows = useMemo(
-    () =>
-      getBreakdownRows(keyQuery.data, 'token', (keyId) =>
-        t('Key #{{id}} (deleted)', { id: keyId })
-      ),
-    [keyQuery.data, t]
-  )
-  const maxKeyQuota = Math.max(1, ...keyRows.map((row) => row.quota))
 
   const spec = useMemo(() => {
     if (!series) return null
@@ -58,12 +53,18 @@ export function DailyCostChart(props: { range: TimeRange | null }) {
         {
           id: 'daily-cost',
           values: series.points.map((point) => ({
-            day: point.day.slice(5),
+            // "YYYY-MM-DD HH" -> "HH:00"; "YYYY-MM-DD" -> "MM-DD".
+            day: hourly ? `${point.day.slice(11)}:00` : point.day.slice(5),
             series: point.series,
             credits: point.credits,
           })),
         },
       ],
+      color: {
+        type: 'ordinal',
+        domain: series.series,
+        range: modelColors(series.series, otherLabel),
+      },
       xField: 'day',
       yField: 'credits',
       seriesField: 'series',
@@ -83,122 +84,65 @@ export function DailyCostChart(props: { range: TimeRange | null }) {
       ],
       background: 'transparent',
     }
-  }, [locale, series])
+  }, [locale, series, hourly, otherLabel])
 
-  const isLoading =
-    view === 'model' ? dailyQuery.isPending : keyQuery.isPending
-  const isError = view === 'model' ? dailyQuery.isError : keyQuery.isError
-  const totalQuota =
-    view === 'model'
-      ? sumQuota(dailyQuery.data)
-      : Number(keyQuery.data?.total.quota ?? 0)
+  let body: React.ReactNode
+  if (!range) {
+    body = <Message>{t('Choose a valid date range to see usage.')}</Message>
+  } else if (query.isError) {
+    body = <Message>{t('Could not load usage. Try again later.')}</Message>
+  } else if (query.isPending) {
+    body = <Message>{t('Loading')}</Message>
+  } else if (spec && themeReady && series && series.totalCredits > 0) {
+    body = (
+      <div className='h-[280px] sm:h-80'>
+        <VChart
+          key={`${resolvedTheme}-${series.days.length}-${series.series.join('|')}`}
+          spec={
+            {
+              ...spec,
+              theme: resolvedTheme === 'dark' ? 'dark' : 'light',
+            } as ISpec
+          }
+          options={VCHART_OPTION}
+        />
+      </div>
+    )
+  } else {
+    body = <Message>{t('No data')}</Message>
+  }
 
   return (
     <section className='bg-card min-w-0 rounded-2xl border p-4 shadow-xs sm:p-5'>
-      <div className='flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between'>
-        <div className='flex flex-col gap-0.5'>
-          <h2 className='text-sm font-semibold sm:text-base'>
-            {t('Daily cost')}
-          </h2>
-          <span className='text-muted-foreground text-xs tabular-nums'>
-            {t('Total {{amount}}', {
-              amount: formatQuotaWithCredit(totalQuota, {
-                abbreviate: false,
-                digitsLarge: 2,
-                digitsSmall: 4,
-              }),
-            })}
-          </span>
-        </div>
-        <div
-          role='group'
-          aria-label={t('Group chart by')}
-          className='bg-background inline-flex h-8 w-fit rounded-xl border p-1'
-        >
-          {(['model', 'key'] as const).map((item) => (
-            <button
-              key={item}
-              type='button'
-              aria-pressed={view === item}
-              onClick={() => setView(item)}
-              className={cn(
-                'inline-flex shrink-0 items-center rounded-lg px-3 text-xs font-medium transition-colors',
-                view === item
-                  ? 'bg-muted text-foreground shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              {item === 'model' ? t('By model') : t('By API key')}
-            </button>
-          ))}
-        </div>
+      <div className='flex flex-col gap-0.5'>
+        <h2 className='text-sm font-semibold sm:text-base'>{t('Spend')}</h2>
+        <span className='text-muted-foreground text-xs tabular-nums'>
+          {t('Total {{amount}}', {
+            amount: formatQuotaWithCredit(sumQuota(query.data), {
+              abbreviate: false,
+              digitsLarge: 2,
+              digitsSmall: 4,
+            }),
+          })}
+          {/* quota_data is flushed from memory every few minutes
+              (DataExportInterval), so the latest requests show up late. */}
+          {' · '}
+          {t('Updates every few minutes')}
+        </span>
       </div>
-
-      <div className='mt-3 min-h-[280px]'>
-        {!range ? (
-          <p className='text-muted-foreground py-10 text-center text-sm'>
-            {t('Choose a valid date range to see usage.')}
-          </p>
-        ) : isError ? (
-          <p className='text-muted-foreground py-10 text-center text-sm'>
-            {t('Could not load usage. Try again later.')}
-          </p>
-        ) : isLoading ? (
-          <p className='text-muted-foreground py-10 text-center text-sm'>
-            {t('Loading')}
-          </p>
-        ) : view === 'model' ? (
-          spec && themeReady && series && series.totalCredits > 0 ? (
-            <div className='h-[280px] sm:h-80'>
-              <VChart
-                key={`${resolvedTheme}-${series.days.length}-${series.series.join('|')}`}
-                spec={
-                  {
-                    ...spec,
-                    theme: resolvedTheme === 'dark' ? 'dark' : 'light',
-                  } as ISpec
-                }
-                options={VCHART_OPTION}
-              />
-            </div>
-          ) : (
-            <p className='text-muted-foreground py-10 text-center text-sm'>
-              {t('No data')}
-            </p>
-          )
-        ) : keyRows.length === 0 ? (
-          <p className='text-muted-foreground py-10 text-center text-sm'>
-            {t('No data')}
-          </p>
-        ) : (
-          <ul className='flex flex-col gap-3'>
-            {keyRows.map((row) => (
-              <li key={row.key} className='flex flex-col gap-1'>
-                <div className='flex items-center justify-between gap-3 text-xs'>
-                  <span className='min-w-0 truncate font-medium'>{row.label}</span>
-                  <span className='text-muted-foreground shrink-0 tabular-nums'>
-                    {formatQuotaWithCredit(row.quota, {
-                      abbreviate: false,
-                      digitsLarge: 2,
-                      digitsSmall: 4,
-                    })}
-                  </span>
-                </div>
-                <div className='bg-muted h-2 overflow-hidden rounded-full'>
-                  <div
-                    className='bg-chart-1 h-full rounded-full'
-                    style={{ width: `${(row.quota / maxKeyQuota) * 100}%` }}
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      <div className='mt-3 min-h-[280px]'>{body}</div>
     </section>
   )
 }
 
 function sumQuota(rows: { quota?: number }[] | undefined): number {
   return (rows ?? []).reduce((total, row) => total + (Number(row.quota) || 0), 0)
+}
+
+function Message(props: { children: React.ReactNode }) {
+  return (
+    <p className='text-muted-foreground py-10 text-center text-sm'>
+      {props.children}
+    </p>
+  )
 }

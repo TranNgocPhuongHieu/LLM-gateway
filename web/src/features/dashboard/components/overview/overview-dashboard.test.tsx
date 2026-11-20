@@ -70,11 +70,17 @@ vi.mock('./use-overview-usage', () => ({
   useCurrentMinute: () => mocks.now,
 }))
 vi.mock('./recent-usage-panel', () => ({
-  RecentUsagePanel: () => <div>recent-usage</div>,
+  RecentUsagePanel: (props: { range?: { start_timestamp: number } | null; limit?: number }) => (
+    <div>
+      recent-usage {props.range ? `from-${props.range.start_timestamp}` : 'all-time'} limit-{props.limit}
+    </div>
+  ),
   useDashboardBalance: () => undefined,
 }))
 vi.mock('./summary-cards', () => ({
-  SummaryCards: () => <div>customer-summary-cards</div>,
+  SummaryCards: (props: { range: TimeRange | null }) => (
+    <div>customer-summary-cards {props.range ? 'with-range' : 'no-range'}</div>
+  ),
 }))
 vi.mock('./low-balance-banner', () => ({
   LowBalanceBanner: () => <div>low-balance</div>,
@@ -135,10 +141,11 @@ describe('OverviewDashboard for customers', () => {
     mocks.getUserModels.mockResolvedValue({ success: true, data: [] })
     renderPage()
 
-    expect(screen.getByText('customer-summary-cards')).toBeTruthy()
+    // Every panel follows the shared range picker (Today by default).
+    expect(screen.getByText('customer-summary-cards with-range')).toBeTruthy()
     expect(screen.getByText('low-balance')).toBeTruthy()
     expect(screen.getByText('customer-daily-cost')).toBeTruthy()
-    expect(screen.getByText('recent-usage')).toBeTruthy()
+    expect(screen.getByText(/^recent-usage from-\d+ limit-5$/)).toBeTruthy()
     expect(screen.queryByText('admin-overview')).toBeNull()
     expect(await screen.findByText('Setup guide')).toBeTruthy()
   })

@@ -53,14 +53,15 @@ export function OverviewRangePicker(props: {
 
   return (
     <div className='flex flex-col gap-2'>
-      <div className='flex flex-wrap items-center gap-2'>
+      <div className='flex flex-col gap-2 sm:flex-row sm:items-center'>
         <span className='text-muted-foreground text-xs font-medium'>
           {t('Usage period')}
         </span>
+        {/* Five equal columns on phones so "Custom" never wraps alone. */}
         <div
           role='group'
           aria-label={t('Usage period')}
-          className='bg-background inline-flex max-w-full flex-wrap gap-1 rounded-xl border p-1'
+          className='bg-background grid w-full grid-cols-5 gap-1 rounded-xl border p-1 sm:inline-flex sm:w-auto'
         >
           {PRESETS.map((preset) => {
             const active = value.preset === preset
@@ -71,7 +72,7 @@ export function OverviewRangePicker(props: {
                 aria-pressed={active}
                 onClick={() => onChange({ ...value, preset })}
                 className={cn(
-                  'inline-flex h-7 items-center rounded-lg px-3 text-xs font-medium transition-colors',
+                  'inline-flex h-7 min-w-0 items-center justify-center rounded-lg px-1.5 text-xs font-medium whitespace-nowrap transition-colors sm:px-3',
                   active
                     ? 'bg-muted text-foreground shadow-xs'
                     : 'text-muted-foreground hover:text-foreground'

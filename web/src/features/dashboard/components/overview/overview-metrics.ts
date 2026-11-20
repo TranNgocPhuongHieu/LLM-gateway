@@ -71,35 +71,6 @@ export function isBelowWarningThreshold(
   return balanceQuota < thresholdQuota
 }
 
-export interface SpendKpiInput {
-  balanceQuota: number
-  todayQuota: number
-  monthQuota: number
-  lastMonthSamePeriodQuota: number
-  last7DaysQuota: number
-  now: Date
-}
-
-export interface SpendKpis {
-  monthChangePct: number | null
-  avgDailyQuota: number
-  health: HealthLevel
-  runOut: RunOutProjection
-}
-
-export function computeSpendKpis(input: SpendKpiInput): SpendKpis {
-  const avgDailyQuota = averageDailyQuota(input.last7DaysQuota)
-  return {
-    monthChangePct: percentChange(
-      input.monthQuota,
-      input.lastMonthSamePeriodQuota
-    ),
-    avgDailyQuota,
-    health: getHealthLevel(input.balanceQuota, avgDailyQuota),
-    runOut: projectRunOut(input.balanceQuota, avgDailyQuota, input.now),
-  }
-}
-
 export function sharePercent(quota: number, totalQuota: number): number {
   return totalQuota > 0 ? (quota / totalQuota) * 100 : 0
 }

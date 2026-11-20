@@ -95,7 +95,8 @@ func TestParseAdminSummaryRangeAcceptsMaxSpan(t *testing.T) {
 
 func TestGetAdminSummaryEmptyDatabaseEnvelope(t *testing.T) {
 	setupAdminSummaryControllerDB(t)
-	c, recorder := adminSummaryContext(t, "start_timestamp=1000&end_timestamp=5000")
+	// exclude_internal is accepted alongside the range; with no admins it is a no-op.
+	c, recorder := adminSummaryContext(t, "start_timestamp=1000&end_timestamp=5000&exclude_internal=true")
 	GetAdminSummary(c)
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body.String())
@@ -106,6 +107,8 @@ func TestGetAdminSummaryEmptyDatabaseEnvelope(t *testing.T) {
 		Data    struct {
 			Topup struct {
 				CreditedQuota *int64           `json:"credited_quota"`
+				PaidVND       *int64           `json:"paid_vnd"`
+				BonusVND      *int64           `json:"bonus_vnd"`
 				Count         *int64           `json:"count"`
 				PendingCount  *int64           `json:"pending_count"`
 				ByMethod      *json.RawMessage `json:"by_method"`
@@ -120,6 +123,9 @@ func TestGetAdminSummaryEmptyDatabaseEnvelope(t *testing.T) {
 				Total  *int64 `json:"total"`
 				Errors *int64 `json:"errors"`
 			} `json:"requests"`
+			Usage struct {
+				ConsumedQuota *int64 `json:"consumed_quota"`
+			} `json:"usage"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
@@ -131,7 +137,8 @@ func TestGetAdminSummaryEmptyDatabaseEnvelope(t *testing.T) {
 	d := body.Data
 	if d.Topup.CreditedQuota == nil || d.Topup.Count == nil || d.Topup.PendingCount == nil || d.Topup.ByMethod == nil ||
 		d.Users.NewUsers == nil || d.Users.NewGoogleUsers == nil || d.Users.SignupQuotaGranted == nil || d.Users.ActiveUsers == nil ||
-		d.Requests.Total == nil || d.Requests.Errors == nil {
+		d.Requests.Total == nil || d.Requests.Errors == nil ||
+		d.Topup.PaidVND == nil || d.Topup.BonusVND == nil || d.Usage.ConsumedQuota == nil {
 		t.Fatalf("response is missing a contract field: %s", recorder.Body.String())
 	}
 	if string(*d.Topup.ByMethod) != "[]" {

@@ -1,6 +1,8 @@
 import { Link } from '@tanstack/react-router'
-import { useMemo } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+
+import { Switch } from '@/components/ui/switch'
 
 import { ConsumptionDistributionChart } from '../../models/consumption-distribution-chart'
 import { AdminUsageTrackingCard } from '../admin-usage-tracking-card'
@@ -11,22 +13,61 @@ import { AdminErrorsCard } from './admin-errors-card'
 import { AdminSummaryCards } from './admin-summary-cards'
 import { useAdminHourlyUsage } from './use-admin-overview'
 
+// Per-viewer preference; storage can be unavailable (private mode), so every
+// access is guarded and the default applies.
+const EXCLUDE_INTERNAL_STORAGE_KEY = 'admin-overview:exclude-internal'
+
+function readExcludeInternal(): boolean {
+  try {
+    return window.localStorage.getItem(EXCLUDE_INTERNAL_STORAGE_KEY) !== 'false'
+  } catch {
+    return true
+  }
+}
+
+function writeExcludeInternal(value: boolean) {
+  try {
+    window.localStorage.setItem(EXCLUDE_INTERNAL_STORAGE_KEY, String(value))
+  } catch {
+    // Preference is not persisted; the toggle still works for this session.
+  }
+}
+
 // Super admin Overview: every panel is system-wide and follows the same range
 // picker. Customer-only content (setup guide, own balance and spend) is not
-// rendered here.
+// rendered here. "Hide internal accounts" drops admin and root accounts from
+// usage figures; revenue and signups stay platform-wide.
 export function AdminOverview(props: { range: TimeRange | null }) {
   const { t } = useTranslation()
+  const switchId = useId()
+  const [excludeInternal, setExcludeInternal] = useState(readExcludeInternal)
   const unixRange = useMemo(
     () => (props.range ? toUnixRange(props.range) : null),
     [props.range]
   )
-  const hourlyQuery = useAdminHourlyUsage(unixRange)
+  const hourlyQuery = useAdminHourlyUsage(unixRange, excludeInternal)
+
+  const handleExcludeInternalChange = (value: boolean) => {
+    setExcludeInternal(value)
+    writeExcludeInternal(value)
+  }
 
   return (
     <div className='flex flex-col gap-4'>
-      <AdminSummaryCards range={props.range} />
+      <div className='flex items-center justify-end gap-2'>
+        <Switch
+          id={switchId}
+          checked={excludeInternal}
+          onCheckedChange={handleExcludeInternalChange}
+        />
+        <label htmlFor={switchId} className='text-muted-foreground text-xs font-medium'>
+          {t('Hide internal accounts')}
+        </label>
+      </div>
 
-      <AdminDailySpendChart range={props.range} />
+      <AdminSummaryCards range={props.range} excludeInternal={excludeInternal} />
+
+      <AdminDailySpendChart range={props.range} excludeInternal={excludeInternal} />
 
       <div className='grid gap-4 lg:grid-cols-2'>
         <ConsumptionDistributionChart
@@ -34,12 +75,12 @@ export function AdminOverview(props: { range: TimeRange | null }) {
           loading={Boolean(unixRange) && hourlyQuery.isPending}
           timeGranularity='hour'
         />
-        <AdminErrorsCard range={props.range} />
+        <AdminErrorsCard range={props.range} excludeInternal={excludeInternal} />
       </div>
 
-      <AdminUsageTrackingCard />
+      <AdminUsageTrackingCard range={props.range} excludeInternal={excludeInternal} />
 
-      <RecentUsagePanel />
+      <RecentUsagePanel range={unixRange} />
 
       <div className='flex justify-end'>
         <Link

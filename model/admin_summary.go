@@ -17,13 +17,25 @@ type AdminTopUpMethodSummary struct {
 	Currency string  `json:"currency"`
 	Amount   float64 `json:"amount"`
 	Count    int64   `json:"count"`
+	// PaidVND and BonusVND: see AdminTopUpSummary.
+	PaidVND  int64 `json:"paid_vnd"`
+	BonusVND int64 `json:"bonus_vnd"`
 }
 
 type AdminTopUpSummary struct {
-	CreditedQuota int64                     `json:"credited_quota"`
-	Count         int64                     `json:"count"`
-	PendingCount  int64                     `json:"pending_count"`
-	ByMethod      []AdminTopUpMethodSummary `json:"by_method"`
+	CreditedQuota int64 `json:"credited_quota"`
+	// PaidVND is the money customers paid, in VND, before any bonus: the SePay
+	// amount, or the Binance USDT base amount converted at the order's rate
+	// (fee excluded). It is read from the order, not from quota_snapshot, so
+	// Binance orders whose snapshot was wrong are still counted correctly.
+	// Only SePay and Binance orders contribute.
+	PaidVND int64 `json:"paid_vnd"`
+	// BonusVND is the bonus credited on top of PaidVND, in VND
+	// (order credits x 1,000 - PaidVND, never negative).
+	BonusVND     int64                     `json:"bonus_vnd"`
+	Count        int64                     `json:"count"`
+	PendingCount int64                     `json:"pending_count"`
+	ByMethod     []AdminTopUpMethodSummary `json:"by_method"`
 }
 
 type AdminUserSummary struct {
@@ -38,29 +50,64 @@ type AdminRequestSummary struct {
 	Errors int64 `json:"errors"`
 }
 
+type AdminUsageSummary struct {
+	// ConsumedQuota is the quota charged on successful (consume) requests.
+	ConsumedQuota int64 `json:"consumed_quota"`
+}
+
 type AdminSummary struct {
 	Topup    AdminTopUpSummary   `json:"topup"`
 	Users    AdminUserSummary    `json:"users"`
 	Requests AdminRequestSummary `json:"requests"`
+	Usage    AdminUsageSummary   `json:"usage"`
 }
 
 // GetAdminSummary aggregates platform-wide top-up, signup and request figures
 // for [startTimestamp, endTimestamp] (unix seconds, inclusive). PendingCount is
 // the only figure that ignores the range: it is the sidebar review badge count.
-func GetAdminSummary(startTimestamp int64, endTimestamp int64) (*AdminSummary, error) {
+//
+// excludeInternal drops admin and root accounts (internalUserIDs) from the
+// usage figures: active users, requests and consumed quota. Top-ups and
+// signups are always platform-wide.
+func GetAdminSummary(startTimestamp int64, endTimestamp int64, excludeInternal bool) (*AdminSummary, error) {
+	var excludeIDs []int
+	if excludeInternal {
+		ids, err := internalUserIDs()
+		if err != nil {
+			return nil, err
+		}
+		excludeIDs = ids
+	}
 	topup, err := getAdminTopUpSummary(startTimestamp, endTimestamp)
 	if err != nil {
 		return nil, err
 	}
-	users, err := getAdminUserSummary(startTimestamp, endTimestamp)
+	users, err := getAdminUserSummary(startTimestamp, endTimestamp, excludeIDs)
 	if err != nil {
 		return nil, err
 	}
-	requests, err := getAdminRequestSummary(startTimestamp, endTimestamp)
+	requests, usage, err := getAdminRequestSummary(startTimestamp, endTimestamp, excludeIDs)
 	if err != nil {
 		return nil, err
 	}
-	return &AdminSummary{Topup: topup, Users: users, Requests: requests}, nil
+	return &AdminSummary{Topup: topup, Users: users, Requests: requests, Usage: usage}, nil
+}
+
+// internalUserIDs returns the ids of admin and root accounts, soft-deleted
+// ones included, whose own usage the admin Overview can hide.
+func internalUserIDs() ([]int, error) {
+	ids := make([]int, 0)
+	err := DB.Unscoped().Model(&User{}).Where("role >= ?", common.RoleAdminUser).Pluck("id", &ids).Error
+	return ids, err
+}
+
+// excludeUserIDs drops rows owned by ids. An empty list leaves tx unchanged,
+// because "NOT IN ()" is invalid SQL.
+func excludeUserIDs(tx *gorm.DB, ids []int) *gorm.DB {
+	if len(ids) == 0 {
+		return tx
+	}
+	return tx.Where("user_id NOT IN ?", ids)
 }
 
 // adminTopUpGroupRow is one (method, currency) bucket of completed top-ups.
@@ -70,6 +117,8 @@ type adminTopUpGroupRow struct {
 	RowCount      int64   `gorm:"column:row_count"`
 	Amount        float64 `gorm:"column:amount"`
 	CreditedQuota int64   `gorm:"column:credited_quota"`
+	PaidVND       int64   `gorm:"column:paid_vnd"`
+	CreditedVND   int64   `gorm:"column:credited_vnd"`
 }
 
 // getAdminTopUpSummary groups successful top-ups by payment method. A top-up
@@ -107,7 +156,13 @@ func getAdminTopUpSummary(startTimestamp int64, endTimestamp int64) (AdminTopUpS
 			"ELSE top_ups.money END), 0) AS amount, " +
 			"COALESCE(SUM(CASE WHEN binance_top_ups.id IS NOT NULL THEN binance_top_ups.quota_snapshot " +
 			"WHEN sepay_payments.id IS NOT NULL THEN sepay_payments.quota_snapshot " +
-			"ELSE 0 END), 0) AS credited_quota").
+			"ELSE 0 END), 0) AS credited_quota, " +
+			"COALESCE(SUM(CASE WHEN binance_top_ups.id IS NOT NULL THEN binance_top_ups.amount_vnd " +
+			"WHEN sepay_payments.id IS NOT NULL THEN sepay_payments.amount_vnd " +
+			"ELSE 0 END), 0) AS paid_vnd, " +
+			"COALESCE(SUM(CASE WHEN binance_top_ups.id IS NOT NULL THEN binance_top_ups.credits * 1000 " +
+			"WHEN sepay_payments.id IS NOT NULL THEN sepay_payments.credits * 1000 " +
+			"ELSE 0 END), 0) AS credited_vnd").
 		Group("method_key, currency_key").
 		Order("method_key, currency_key").
 		Scan(&rows).Error
@@ -115,13 +170,21 @@ func getAdminTopUpSummary(startTimestamp int64, endTimestamp int64) (AdminTopUpS
 		return summary, err
 	}
 	for _, row := range rows {
+		bonusVND := row.CreditedVND - row.PaidVND
+		if bonusVND < 0 {
+			bonusVND = 0
+		}
 		summary.Count += row.RowCount
 		summary.CreditedQuota += row.CreditedQuota
+		summary.PaidVND += row.PaidVND
+		summary.BonusVND += bonusVND
 		summary.ByMethod = append(summary.ByMethod, AdminTopUpMethodSummary{
 			Method:   row.MethodKey,
 			Currency: row.CurrencyKey,
 			Amount:   row.Amount,
 			Count:    row.RowCount,
+			PaidVND:  row.PaidVND,
+			BonusVND: bonusVND,
 		})
 	}
 
@@ -135,7 +198,7 @@ func getAdminTopUpSummary(startTimestamp int64, endTimestamp int64) (AdminTopUpS
 // getAdminUserSummary counts accounts created in the range, including
 // soft-deleted ones, because they were real signups when created. The users
 // table has no index on created_at, so this is a table scan.
-func getAdminUserSummary(startTimestamp int64, endTimestamp int64) (AdminUserSummary, error) {
+func getAdminUserSummary(startTimestamp int64, endTimestamp int64, excludeIDs []int) (AdminUserSummary, error) {
 	var summary AdminUserSummary
 	newUsers := func() *gorm.DB {
 		return DB.Unscoped().Model(&User{}).
@@ -165,8 +228,9 @@ func getAdminUserSummary(startTimestamp int64, endTimestamp int64) (AdminUserSum
 	}
 	summary.SignupQuotaGranted = grants * int64(common.QuotaForNewUser)
 
-	if err := LOG_DB.Model(&Log{}).
-		Where("type = ? AND created_at >= ? AND created_at <= ?", LogTypeConsume, startTimestamp, endTimestamp).
+	active := LOG_DB.Model(&Log{}).
+		Where("type = ? AND created_at >= ? AND created_at <= ?", LogTypeConsume, startTimestamp, endTimestamp)
+	if err := excludeUserIDs(active, excludeIDs).
 		Select("COUNT(DISTINCT user_id)").
 		Scan(&summary.ActiveUsers).Error; err != nil {
 		return summary, err
@@ -177,28 +241,32 @@ func getAdminUserSummary(startTimestamp int64, endTimestamp int64) (AdminUserSum
 // getAdminRequestSummary counts final customer-visible outcomes: successful
 // consume logs (LogTypeConsume) and final error logs (LogTypeError). Retry
 // attempts flagged request_final=false are excluded, as in the self summary.
-func getAdminRequestSummary(startTimestamp int64, endTimestamp int64) (AdminRequestSummary, error) {
+// The usage summary is the quota charged on the same consume logs.
+func getAdminRequestSummary(startTimestamp int64, endTimestamp int64, excludeIDs []int) (AdminRequestSummary, AdminUsageSummary, error) {
 	var summary AdminRequestSummary
+	var usage AdminUsageSummary
 	var rows []struct {
 		Type     int   `gorm:"column:type"`
 		RowCount int64 `gorm:"column:row_count"`
+		Quota    int64 `gorm:"column:quota_sum"`
 	}
 	tx := LOG_DB.Model(&Log{}).
-		Select("type, COUNT(*) AS row_count").
+		Select("type, COUNT(*) AS row_count, COALESCE(SUM(quota), 0) AS quota_sum").
 		Where("type IN ? AND created_at >= ? AND created_at <= ?",
 			[]int{LogTypeConsume, LogTypeError}, startTimestamp, endTimestamp)
-	tx = hideIntermediateRelayErrors(tx, "")
+	tx = hideIntermediateRelayErrors(excludeUserIDs(tx, excludeIDs), "")
 	if err := tx.Group("type").Scan(&rows).Error; err != nil {
-		return summary, err
+		return summary, usage, err
 	}
 	for _, row := range rows {
 		switch row.Type {
 		case LogTypeConsume:
 			summary.Total += row.RowCount
+			usage.ConsumedQuota += row.Quota
 		case LogTypeError:
 			summary.Total += row.RowCount
 			summary.Errors += row.RowCount
 		}
 	}
-	return summary, nil
+	return summary, usage, nil
 }

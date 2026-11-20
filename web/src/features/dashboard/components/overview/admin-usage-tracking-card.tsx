@@ -6,11 +6,11 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { getFlowQuotaDates } from '@/features/dashboard/api'
 import { formatQuotaWithCredit } from '@/lib/currency'
-import { getRollingDateRange } from '@/lib/time'
 import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
-const RANGE_OPTIONS = [1, 7, 30] as const
+import { toUnixRange, type TimeRange } from './overview-time-range'
+
 const LIMIT_OPTIONS = [5, 10, 20] as const
 
 // Quota is stored in raw units; every displayed quota goes through this formatter.
@@ -20,29 +20,37 @@ function formatCredits(quota: number): string {
   return formatQuotaWithCredit(quota, CREDIT_FORMAT)
 }
 
-export function AdminUsageTrackingCard() {
+// Follows the Overview range picker; excludeInternal hides admin and root
+// accounts like the rest of the admin Overview.
+export function AdminUsageTrackingCard(props: {
+  range: TimeRange | null
+  excludeInternal?: boolean
+}) {
   const { t } = useTranslation()
   const role = useAuthStore((state) => state.auth.user?.role ?? ROLE.GUEST)
   const canView = role >= ROLE.SUPER_ADMIN
-  const [rangeDays, setRangeDays] = useState<number>(7)
   const [limit, setLimit] = useState<number>(10)
   const [adjustOpen, setAdjustOpen] = useState(false)
 
-  const timeRange = useMemo(() => {
-    const { start, end } = getRollingDateRange(rangeDays)
-    return {
-      start_timestamp: Math.floor(start.getTime() / 1000),
-      end_timestamp: Math.floor(end.getTime() / 1000),
-    }
-  }, [rangeDays])
+  const excludeInternal = Boolean(props.excludeInternal)
+  const timeRange = useMemo(
+    () => (props.range ? toUnixRange(props.range) : null),
+    [props.range]
+  )
 
+  // All rows are kept so per-user totals are complete; limit applies to the
+  // user bars and the detail table only.
   const query = useQuery({
-    queryKey: ['dashboard', 'admin-usage-tracking', timeRange, limit],
-    enabled: canView,
+    queryKey: ['dashboard', 'admin-usage-tracking', timeRange, excludeInternal],
+    enabled: canView && Boolean(timeRange),
     queryFn: async () => {
-      const result = await getFlowQuotaDates(timeRange, true)
+      if (!timeRange) return []
+      const result = await getFlowQuotaDates(
+        { ...timeRange, exclude_internal: excludeInternal },
+        true
+      )
       if (!result.success) throw new Error(result.message || 'Failed to load usage')
-      return (result.data ?? []).slice(0, limit)
+      return result.data ?? []
     },
     staleTime: 60_000,
     retry: 1,
@@ -65,8 +73,10 @@ export function AdminUsageTrackingCard() {
   }, [limit, query.data])
 
   const chartMax = Math.max(...chartRows.map((row) => row.quota), 1)
-  const totalQuota = chartRows.reduce((sum, row) => sum + row.quota, 0)
-  const totalRequests = chartRows.reduce((sum, row) => sum + row.requests, 0)
+  const allRows = query.data ?? []
+  const totalQuota = allRows.reduce((sum, row) => sum + Number(row.quota ?? 0), 0)
+  const totalRequests = allRows.reduce((sum, row) => sum + Number(row.count ?? 0), 0)
+  const detailRows = allRows.slice(0, limit)
 
   if (!canView) return null
 
@@ -97,12 +107,6 @@ export function AdminUsageTrackingCard() {
       {adjustOpen && (
         <div className='bg-muted/20 flex flex-wrap items-end gap-3 border-b px-4 py-3 sm:px-5'>
           <label className='grid gap-1 text-xs'>
-            <span className='text-muted-foreground'>{t('Time range')}</span>
-            <select className='bg-background h-9 rounded-lg border px-2' value={rangeDays} onChange={(e) => setRangeDays(Number(e.target.value))}>
-              {RANGE_OPTIONS.map((days) => <option key={days} value={days}>{days} {t('days')}</option>)}
-            </select>
-          </label>
-          <label className='grid gap-1 text-xs'>
             <span className='text-muted-foreground'>{t('Rows')}</span>
             <select className='bg-background h-9 rounded-lg border px-2' value={limit} onChange={(e) => setLimit(Number(e.target.value))}>
               {LIMIT_OPTIONS.map((value) => <option key={value} value={value}>{t('Top {{count}}', { count: value })}</option>)}
@@ -115,7 +119,6 @@ export function AdminUsageTrackingCard() {
         <div className='min-w-0 space-y-3'>
           <div className='text-muted-foreground flex items-center justify-between text-xs'>
             <span>{t('Credit usage by user')}</span>
-            <span>{rangeDays} {t('days')}</span>
           </div>
           {query.isLoading ? (
             <div className='bg-muted h-40 animate-pulse rounded-xl' />
@@ -157,7 +160,7 @@ export function AdminUsageTrackingCard() {
             <tr><th className='px-4 py-2 sm:px-5'>{t('User')}</th><th className='px-3 py-2'>{t('API key')}</th><th className='px-3 py-2'>{t('Model')}</th><th className='px-3 py-2 text-right'>{t('Requests')}</th><th className='px-4 py-2 text-right sm:px-5'>{t('Credits used')}</th></tr>
           </thead>
           <tbody className='divide-border/60 divide-y'>
-            {query.isLoading ? <tr><td colSpan={5} className='px-4 py-8 text-center'>{t('Loading')}</td></tr> : query.data?.length ? query.data.map((row, index) => <tr key={`${row.user_id}-${row.token_id}-${row.model_name}-${index}`} className='hover:bg-muted/20'><td className='px-4 py-2.5 sm:px-5'>{row.username || `#${row.user_id ?? '—'}`}</td><td className='text-muted-foreground px-3 py-2.5'>{row.token_name || (row.token_id ? `#${row.token_id}` : t('Unknown'))}</td><td className='px-3 py-2.5 font-mono text-xs'>{row.model_name || '—'}</td><td className='px-3 py-2.5 text-right tabular-nums'>{Number(row.count ?? 0).toLocaleString()}</td><td className='px-4 py-2.5 text-right tabular-nums sm:px-5'>{formatCredits(Number(row.quota ?? 0))}</td></tr>) : <tr><td colSpan={5} className='text-muted-foreground px-4 py-8 text-center'>{t('No API key usage in this range')}</td></tr>}
+            {query.isLoading ? <tr><td colSpan={5} className='px-4 py-8 text-center'>{t('Loading')}</td></tr> : detailRows.length ? detailRows.map((row, index) => <tr key={`${row.user_id}-${row.token_id}-${row.model_name}-${index}`} className='hover:bg-muted/20'><td className='px-4 py-2.5 sm:px-5'>{row.username || `#${row.user_id ?? '—'}`}</td><td className='text-muted-foreground px-3 py-2.5'>{row.token_name || (row.token_id ? `#${row.token_id}` : t('Unknown'))}</td><td className='px-3 py-2.5 font-mono text-xs'>{row.model_name || '—'}</td><td className='px-3 py-2.5 text-right tabular-nums'>{Number(row.count ?? 0).toLocaleString()}</td><td className='px-4 py-2.5 text-right tabular-nums sm:px-5'>{formatCredits(Number(row.quota ?? 0))}</td></tr>) : <tr><td colSpan={5} className='text-muted-foreground px-4 py-8 text-center'>{t('No API key usage in this range')}</td></tr>}
           </tbody>
         </table>
       </div>

@@ -37,13 +37,14 @@ func parseAdminSummaryRange(c *gin.Context) (int64, int64, bool) {
 }
 
 // GetAdminSummary returns platform-wide top-up, signup and request totals.
+// exclude_internal=true hides admin and root accounts from the usage figures.
 // Root admin only; mounted at GET /api/data/admin_summary.
 func GetAdminSummary(c *gin.Context) {
 	startTimestamp, endTimestamp, ok := parseAdminSummaryRange(c)
 	if !ok {
 		return
 	}
-	summary, err := model.GetAdminSummary(startTimestamp, endTimestamp)
+	summary, err := model.GetAdminSummary(startTimestamp, endTimestamp, c.Query("exclude_internal") == "true")
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -52,14 +53,15 @@ func GetAdminSummary(c *gin.Context) {
 }
 
 // GetAdminErrorSummary returns categorized counts of terminal error logs across
-// all users. Raw error content is never returned. Root admin only; mounted at
+// all users (minus admin and root accounts with exclude_internal=true). Raw
+// error content is never returned. Root admin only; mounted at
 // GET /api/log/error_summary.
 func GetAdminErrorSummary(c *gin.Context) {
 	startTimestamp, endTimestamp, ok := parseAdminSummaryRange(c)
 	if !ok {
 		return
 	}
-	summary, err := model.GetErrorSummary(0, startTimestamp, endTimestamp)
+	summary, err := model.GetErrorSummary(0, startTimestamp, endTimestamp, c.Query("exclude_internal") == "true")
 	if err != nil {
 		common.ApiError(c, err)
 		return

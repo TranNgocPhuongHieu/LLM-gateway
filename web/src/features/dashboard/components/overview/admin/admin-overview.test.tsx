@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -46,10 +52,14 @@ vi.mock('../../models/consumption-distribution-chart', () => ({
   ConsumptionDistributionChart: () => <div>quota-distribution</div>,
 }))
 vi.mock('../admin-usage-tracking-card', () => ({
-  AdminUsageTrackingCard: () => <div>usage-tracking</div>,
+  AdminUsageTrackingCard: (props: { excludeInternal?: boolean }) => (
+    <div>usage-tracking exclude={String(props.excludeInternal)}</div>
+  ),
 }))
 vi.mock('../recent-usage-panel', () => ({
-  RecentUsagePanel: () => <div>recent-usage</div>,
+  RecentUsagePanel: (props: { range?: { start_timestamp: number } | null }) => (
+    <div>recent-usage from={props.range?.start_timestamp ?? 'all'}</div>
+  ),
 }))
 vi.mock('@/stores/auth-store', () => {
   const state = () => ({ auth: { user: { id: 1 }, session: { sid: 's' } } })
@@ -66,12 +76,16 @@ const range = { start: new Date(2026, 10, 19), end: new Date(2026, 10, 19, 12) }
 
 const summaryData = {
   topup: {
-    credited_quota: 975_000_000, // 1,950 credits at 500,000 quota per credit
+    // Credited quota includes bonus and old USDT snapshots: 1,950 credits at
+    // 500,000 quota per credit. The KPI must use paid_vnd instead.
+    credited_quota: 975_000_000,
+    paid_vnd: 1_700_000, // 1,700 credits
+    bonus_vnd: 250_000, // 250 credits
     count: 12,
     pending_count: 3,
     by_method: [
-      { method: 'sepay', currency: 'VND', amount: 1_200_000, count: 10 },
-      { method: 'usdt', currency: 'USDT', amount: 50, count: 2 },
+      { method: 'sepay', currency: 'VND', amount: 1_200_000, count: 10, paid_vnd: 1_200_000, bonus_vnd: 200_000 },
+      { method: 'usdt', currency: 'USDT', amount: 50, count: 2, paid_vnd: 500_000, bonus_vnd: 50_000 },
     ],
   },
   users: {
@@ -81,6 +95,7 @@ const summaryData = {
     active_users: 77,
   },
   requests: { total: 2000, errors: 50 },
+  usage: { consumed_quota: 50_000_000 },
 }
 
 function renderOverview() {
@@ -95,6 +110,7 @@ function renderOverview() {
 }
 
 beforeEach(() => {
+  window.localStorage.clear()
   // Credits are shown 1:1 with quota / 500,000 in USD display mode.
   useSystemConfigStore.getState().setConfig({
     currency: { ...DEFAULT_CURRENCY_CONFIG, quotaDisplayType: 'USD' },
@@ -122,9 +138,13 @@ describe('AdminOverview', () => {
   it('shows system-wide KPI cards with credits instead of raw quota', async () => {
     renderOverview()
 
-    expect(await screen.findByText('1,950 credit')).toBeTruthy()
+    // Revenue is the money paid, not the credited quota (which includes bonus).
+    expect(await screen.findByText('Top-up revenue')).toBeTruthy()
+    expect(screen.getByText('1,700 credit')).toBeTruthy()
+    expect(screen.queryByText('1,950 credit')).toBeNull()
     expect(screen.queryByText(/975,000,000/)).toBeNull()
-    expect(screen.getByText('≈ 1,950,000 VND')).toBeTruthy()
+    expect(screen.getByText('≈ 1,700,000 VND')).toBeTruthy()
+    expect(screen.getByText('+ 250 credit bonus granted')).toBeTruthy()
     expect(screen.getByText('SePay 1,200,000 VND')).toBeTruthy()
     expect(screen.getByText('USDT 50')).toBeTruthy()
 
@@ -143,7 +163,65 @@ describe('AdminOverview', () => {
     expect(mocks.summary).toHaveBeenCalledWith({
       start_timestamp: Math.floor(range.start.getTime() / 1000),
       end_timestamp: Math.floor(range.end.getTime() / 1000),
+      exclude_internal: true,
     })
+  })
+
+  it('hides internal accounts by default and remembers turning it off', async () => {
+    const { unmount } = renderOverview()
+
+    expect(await screen.findByText('usage-tracking exclude=true')).toBeTruthy()
+    expect(mocks.errorSummary).toHaveBeenCalledWith(
+      expect.objectContaining({ exclude_internal: true })
+    )
+    expect(mocks.quotaDates).toHaveBeenCalledWith(
+      expect.objectContaining({ exclude_internal: true }),
+      true
+    )
+
+    fireEvent.click(screen.getByRole('switch'))
+
+    expect(await screen.findByText('usage-tracking exclude=false')).toBeTruthy()
+    await waitFor(() =>
+      expect(mocks.summary).toHaveBeenLastCalledWith(
+        expect.objectContaining({ exclude_internal: false })
+      )
+    )
+    expect(window.localStorage.getItem('admin-overview:exclude-internal')).toBe('false')
+
+    unmount()
+    renderOverview()
+    expect(await screen.findByText('usage-tracking exclude=false')).toBeTruthy()
+  })
+
+  it('passes the page range to the recent requests panel', async () => {
+    renderOverview()
+
+    expect(
+      await screen.findByText(
+        `recent-usage from=${Math.floor(range.start.getTime() / 1000)}`
+      )
+    ).toBeTruthy()
+  })
+
+  it('states how many errors are grouped when the summary is truncated', async () => {
+    mocks.errorSummary.mockResolvedValue({
+      success: true,
+      data: {
+        total: 5000,
+        truncated: true,
+        categories: [
+          { category: 'insufficient_balance', count: 5000, last_at: 1_700_000_000, model_name: 'gpt-4o' },
+        ],
+      },
+    })
+    renderOverview()
+
+    expect(
+      await screen.findByText(
+        'Counts cover only the 5,000 most recent errors in this period; older errors are not grouped here.'
+      )
+    ).toBeTruthy()
   })
 
   it('hides the pending link when no top-ups are waiting', async () => {
@@ -153,7 +231,7 @@ describe('AdminOverview', () => {
     })
     renderOverview()
 
-    expect(await screen.findByText('1,950 credit')).toBeTruthy()
+    expect(await screen.findByText('1,700 credit')).toBeTruthy()
     expect(screen.queryByText('0 pending')).toBeNull()
     expect(screen.queryByText(/pending/)).toBeNull()
   })
@@ -184,7 +262,7 @@ describe('AdminOverview', () => {
     const link = await screen.findByText('View model call analytics on the Models tab')
     expect(link.closest('a')?.getAttribute('href')).toBe('/dashboard/$section')
     expect(screen.getByText('quota-distribution')).toBeTruthy()
-    expect(screen.getByText('usage-tracking')).toBeTruthy()
-    expect(screen.getByText('recent-usage')).toBeTruthy()
+    expect(screen.getByText(/^usage-tracking/)).toBeTruthy()
+    expect(screen.getByText(/^recent-usage/)).toBeTruthy()
   })
 })

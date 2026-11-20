@@ -7,13 +7,14 @@ import { Footer } from '@/components/layout/components/footer'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
+import { useStatus } from '@/hooks/use-status'
 import { normalizeInterfaceLanguage } from '@/i18n/languages'
 
-import { getDocPages } from './content'
+import { getDocPages, resolveApiOrigin } from './content'
 
 const DOC_GROUPS = [
   { key: 'start', slugs: ['', 'quickstart', 'api-keys', 'balance'] },
-  { key: 'integrations', slugs: ['codex', 'claude-code', 'kilo-code', 'roo-code'] },
+  { key: 'integrations', slugs: ['claude-code', 'codex', 'hermes-agent', 'opencode', 'pi', 'openclaw', 'cursor'] },
   { key: 'sdk', slugs: ['openai-sdk', 'anthropic-sdk', 'api-reference', 'models-pricing'] },
   { key: 'operations', slugs: ['streaming', 'troubleshooting', 'changelog'] },
 ] as const
@@ -22,14 +23,15 @@ export function Docs({ slug = '' }: { slug?: string }) {
   const { i18n } = useTranslation()
   const vi = normalizeInterfaceLanguage(i18n.resolvedLanguage || i18n.language) === 'vi'
   const s = (vn: string, en: string) => vi ? vn : en
-  const pages = getDocPages(vi)
+  const { status } = useStatus()
+  const pages = getDocPages(vi, resolveApiOrigin(status, typeof window === 'undefined' ? '' : window.location.origin))
   const [query, setQuery] = useState('')
   const { copiedText, copyToClipboard } = useCopyToClipboard({ notify: false })
   const [copyError, setCopyError] = useState(false)
   const current = pages.findIndex((page) => page.slug === slug)
   const page = pages[current]
   const normalizedQuery = query.trim().toLocaleLowerCase()
-  const results = pages.filter((item) => [item.title, item.summary, ...item.blocks.map((block) => `${block.heading || ''} ${block.text || ''} ${block.code || ''}`)].join(' ').toLocaleLowerCase().includes(normalizedQuery))
+  const results = pages.filter((item) => [item.title, item.summary, ...item.blocks.map((block) => `${block.heading || ''} ${block.text || ''} ${(block.items || []).join(' ')} ${block.code || ''}`)].join(' ').toLocaleLowerCase().includes(normalizedQuery))
   const groupedResults = DOC_GROUPS.map((group) => ({
     ...group,
     pages: group.slugs.map((groupSlug) => results.find((item) => item.slug === groupSlug)).filter(Boolean),
@@ -68,7 +70,8 @@ export function Docs({ slug = '' }: { slug?: string }) {
           {page?.blocks.map((block, index) => <section key={index} className='mb-7 last:mb-0'>
             {block.heading && <h2 className='mb-3 text-lg font-semibold'>{block.heading}</h2>}
             {block.text && <p className='leading-7 text-muted-foreground'>{block.text}</p>}
-            {block.code && <div className='overflow-hidden rounded-xl border bg-muted/40'>
+            {block.items && <ul className='list-disc space-y-2 pl-5 leading-7 text-muted-foreground'>{block.items.map((item) => <li key={item}>{item}</li>)}</ul>}
+            {block.code && <div className={`${block.text ? 'mt-3 ' : ''}overflow-hidden rounded-xl border bg-muted/40`}>
               <div className='flex items-center justify-between gap-3 border-b px-4 py-2'>
                 <span className='text-xs text-muted-foreground'>{block.language || s('Cấu hình', 'Configuration')}</span>
                 <Button size='sm' variant='ghost' aria-label={s('Sao chép đoạn mã', 'Copy code')} onClick={async () => { setCopyError(!await copyToClipboard(block.code!)) }}>{copiedText === block.code ? s('Đã sao chép', 'Copied') : s('Sao chép', 'Copy')}</Button>

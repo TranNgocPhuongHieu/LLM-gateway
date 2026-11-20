@@ -57,7 +57,8 @@ function formatVndAsCredits(vnd: number, locale: string): string {
   return `${formatNumber(vnd / VND_PER_CREDIT, locale)} credit`
 }
 
-// Changes beyond this are shown as ">999%" instead of a long number.
+// A rise beyond this means the previous period had almost no activity, so the
+// percentage says nothing useful: the badge reads "New" instead.
 const MAX_SHOWN_CHANGE_PERCENT = 999
 
 function errorRatePercent(requests: AdminSummaryData['requests']): number | null {
@@ -236,10 +237,9 @@ function KpiCard(props: {
             )}
             title={t('Compared with the previous period')}
           >
-            {change >= 0 ? '▲' : '▼'}{' '}
-            {Math.abs(change) > MAX_SHOWN_CHANGE_PERCENT
-              ? `>${MAX_SHOWN_CHANGE_PERCENT}%`
-              : formatPercent(Math.abs(change))}
+            {change > MAX_SHOWN_CHANGE_PERCENT
+              ? t('New')
+              : `${change >= 0 ? '▲' : '▼'} ${formatPercent(Math.abs(change))}`}
           </span>
         )}
       </div>

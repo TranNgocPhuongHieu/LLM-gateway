@@ -162,9 +162,6 @@ export function RecentUsagePanel(
           <h2 className="text-base font-semibold">
             {props.range ? t("Recent requests") : t("Usage logs")}
           </h2>
-          <p className="text-muted-foreground mt-0.5 text-xs">
-            {t("Usage history · automatic refresh is configurable")}
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -226,7 +223,6 @@ export function RecentUsagePanel(
           <option value="success">{t("Success")}</option>
           <option value="error">{t("Error")}</option>
         </select>
-        <span className="text-muted-foreground text-xs">{t("Most recent requests")}</span>
       </div>
 
       {(query.isError || balanceQuery.isError) && (

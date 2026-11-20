@@ -1,4 +1,3 @@
-import { Link } from '@tanstack/react-router'
 import { useId, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -73,16 +72,6 @@ export function AdminOverview(props: { range: TimeRange | null }) {
       </div>
 
       <RecentUsagePanel range={unixRange} limit={5} excludeInternal={excludeInternal} />
-
-      <div className='flex justify-end'>
-        <Link
-          to='/dashboard/$section'
-          params={{ section: 'models' }}
-          className='text-muted-foreground hover:text-foreground text-xs font-medium underline underline-offset-4'
-        >
-          {t('View model call analytics on the Models tab')}
-        </Link>
-      </div>
     </div>
   )
 }

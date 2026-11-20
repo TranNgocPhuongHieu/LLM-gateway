@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
@@ -12,6 +13,7 @@ import (
 	relaycommon "github.com/TranNgocPhuongHieu/LLM-gateway/relay/common"
 	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/dto"
 	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/types"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/setting/system_setting"
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
@@ -240,10 +242,7 @@ func (s *BillingSession) preConsume(c *gin.Context, quota int) *types.NewAPIErro
 			if quotaErr != nil {
 				userQuota = 0
 			}
-			return types.NewErrorWithStatusCode(
-				fmt.Errorf("用户额度不足, 剩余额度: %s", logger.FormatQuota(userQuota)),
-				types.ErrorCodeInsufficientUserQuota, http.StatusForbidden,
-				types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
+			return insufficientBalanceError(userQuota, 0)
 		}
 
 		return types.NewError(err, types.ErrorCodeUpdateDataError, types.ErrOptionWithSkipRetry())
@@ -373,16 +372,10 @@ func NewBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preCons
 			return nil, types.NewError(err, types.ErrorCodeQueryDataError, types.ErrOptionWithSkipRetry())
 		}
 		if userQuota <= 0 {
-			return nil, types.NewErrorWithStatusCode(
-				fmt.Errorf("用户额度不足, 剩余额度: %s", logger.FormatQuota(userQuota)),
-				types.ErrorCodeInsufficientUserQuota, http.StatusForbidden,
-				types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
+			return nil, insufficientBalanceError(userQuota, 0)
 		}
 		if userQuota-preConsumedQuota < 0 {
-			return nil, types.NewErrorWithStatusCode(
-				fmt.Errorf("预扣费额度失败, 用户剩余额度: %s, 需要预扣费额度: %s", logger.FormatQuota(userQuota), logger.FormatQuota(preConsumedQuota)),
-				types.ErrorCodeInsufficientUserQuota, http.StatusForbidden,
-				types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
+			return nil, insufficientBalanceError(userQuota, preConsumedQuota)
 		}
 		relayInfo.UserQuota = userQuota
 
@@ -397,4 +390,19 @@ func NewBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preCons
 	}
 
 	return tryWallet()
+}
+
+// insufficientBalanceError tells the customer, in English, that the wallet
+// cannot cover the request and where to top up. required is the amount the
+// request needs to reserve, or 0 when the wallet is already empty. It is a
+// 403 so SDKs do not retry it.
+func insufficientBalanceError(userQuota int, required int) *types.NewAPIError {
+	message := "Insufficient balance: " + logger.FormatQuota(userQuota) + " left"
+	if required > 0 {
+		message += ", this request needs about " + logger.FormatQuota(required)
+	}
+	message += ". Top up at " + strings.TrimRight(system_setting.ServerAddress, "/") + "/wallet"
+	return types.NewErrorWithStatusCode(errors.New(message),
+		types.ErrorCodeInsufficientUserQuota, http.StatusForbidden,
+		types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
 }

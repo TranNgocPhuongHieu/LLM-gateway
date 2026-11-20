@@ -41,8 +41,10 @@ var errorCategoryRules = []errorCategoryRule{
 		// Upstream "insufficient_quota" means a provider account is out of
 		// credit, not the customer's wallet, so it is deliberately not here.
 		"quota not enough",
-		"用户额度不足",  // billing_session.go: "用户额度不足, 剩余额度"
-		"预扣费额度失败", // billing_session.go: user balance short of pre-consume
+		"insufficient balance", // billing_session.go: insufficientBalanceError
+		// Rows written before the messages were translated to English.
+		"用户额度不足",
+		"预扣费额度失败",
 	}},
 	{errorCategoryKeyQuotaExhausted, []string{
 		"token quota is not enough", // service/quota.go (token remain quota)
@@ -60,6 +62,7 @@ var errorCategoryRules = []errorCategoryRule{
 		"model_not_found",
 		"model not found",
 		"invalid model",
+		"for the models you can use",      // distributor.model_unavailable
 		"no available channel",            // distributor.no_available_channel
 		"failed to get available channel", // distributor.get_channel_failed
 		"no access to model",              // distributor.token_model_forbidden

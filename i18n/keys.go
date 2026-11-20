@@ -110,4 +110,5 @@ const (
 	MsgDistributorGroupAccessDenied   = "distributor.group_access_denied"
 	MsgDistributorGetChannelFailed    = "distributor.get_channel_failed"
 	MsgDistributorNoAvailableChannel  = "distributor.no_available_channel"
+	MsgDistributorModelUnavailable    = "distributor.model_unavailable"
 )

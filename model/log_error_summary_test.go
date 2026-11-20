@@ -13,6 +13,8 @@ func TestClassifyErrorLogContent(t *testing.T) {
 		// insufficient_balance: user wallet shortfall
 		{"status_code=403, 用户额度不足, 剩余额度: $0.000000", "insufficient_balance"},
 		{"status_code=403, 预扣费额度失败, 用户剩余额度: $0.1, 需要预扣费额度: $0.2", "insufficient_balance"},
+		{"status_code=403, Insufficient balance: ₫4 left, this request needs about ₫120. Top up at https://gw.example/wallet", "insufficient_balance"},
+		{"status_code=404, Model retired-model is not available. See https://gw.example/pricing for the models you can use.", "model_unavailable"},
 		{"status_code=403, user quota is not enough, user quota: $0.10, need quota: $0.20", "insufficient_balance"},
 		{"insufficient_user_quota", "insufficient_balance"},
 		// Upstream provider quota errors must not tell the customer to top up.

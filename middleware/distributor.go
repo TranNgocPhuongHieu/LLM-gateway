@@ -20,6 +20,7 @@ import (
 	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/types"
 	"github.com/TranNgocPhuongHieu/LLM-gateway/service"
 	"github.com/TranNgocPhuongHieu/LLM-gateway/setting/ratio_setting"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/setting/system_setting"
 
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
@@ -172,11 +173,11 @@ func Distribute() func(c *gin.Context) {
 						//	common.SysError(fmt.Sprintf("渠道不存在：%d", channel.Id))
 						//	message = "数据库一致性已被破坏，请联系管理员"
 						//}
-						abortWithOpenAiMessage(c, http.StatusServiceUnavailable, message, types.ErrorCodeModelNotFound)
+						abortNoChannel(c, usingGroup, modelRequest.Model, message)
 						return
 					}
 					if channel == nil {
-						abortWithOpenAiMessage(c, http.StatusServiceUnavailable, noAvailableChannelMessage(c, usingGroup, modelRequest.Model), types.ErrorCodeModelNotFound)
+						abortNoChannel(c, usingGroup, modelRequest.Model, noAvailableChannelMessage(c, usingGroup, modelRequest.Model))
 						return
 					}
 				}
@@ -201,6 +202,47 @@ func Distribute() func(c *gin.Context) {
 
 // noAvailableChannelMessage explains a 503 for a task-plugin-claimed model.
 // It identifies all candidate plugins whose channels could serve the request.
+// abortNoChannel answers a failed channel selection. When no enabled or
+// auto-disabled channel offers the model, the request can never succeed, so it
+// gets a 404 that SDKs do not retry, with throttled logging; clients kept
+// retrying the old 503 for removed models. Otherwise the failure may be
+// transient and transientMessage is sent as a 503 as before.
+func abortNoChannel(c *gin.Context, usingGroup string, modelName string, transientMessage string) {
+	if modelOfferedForRequest(c, usingGroup, modelName) {
+		abortWithOpenAiMessage(c, http.StatusServiceUnavailable, transientMessage, types.ErrorCodeModelNotFound)
+		return
+	}
+	message := i18n.T(c, i18n.MsgDistributorModelUnavailable, map[string]any{
+		"Model": modelName,
+		"URL":   strings.TrimRight(system_setting.ServerAddress, "/") + "/pricing",
+	})
+	abortWithClientRejection(c, http.StatusNotFound, message, types.ErrorCodeModelNotFound, modelName)
+}
+
+// modelOfferedForRequest reports whether any group the request may use offers
+// the model. Lookup failures and an empty auto-group list count as offered so
+// the caller keeps the transient 503.
+func modelOfferedForRequest(c *gin.Context, usingGroup string, modelName string) bool {
+	groups := []string{usingGroup}
+	if usingGroup == "auto" {
+		groups = service.GetRequestAutoGroups(c, common.GetContextKeyString(c, constant.ContextKeyUserGroup))
+		if len(groups) == 0 {
+			return true
+		}
+	}
+	for _, group := range groups {
+		offered, err := model.IsModelOfferedInGroup(group, modelName)
+		if err != nil {
+			logger.LogWarn(c.Request.Context(), "model availability check failed: %v", err)
+			return true
+		}
+		if offered {
+			return true
+		}
+	}
+	return false
+}
+
 func noAvailableChannelMessage(c *gin.Context, group, modelName string) string {
 	return i18n.T(c, i18n.MsgDistributorNoAvailableChannel, map[string]any{"Group": group, "Model": modelName})
 }

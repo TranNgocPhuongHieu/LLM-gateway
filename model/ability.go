@@ -10,6 +10,7 @@ import (
 
 	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
 	"github.com/TranNgocPhuongHieu/LLM-gateway/dto"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/setting/ratio_setting"
 
 	"github.com/samber/lo"
 	"gorm.io/gorm"
@@ -39,6 +40,33 @@ func GetAllEnableAbilityWithChannels() ([]AbilityWithChannel, error) {
 		Where("abilities.enabled = ?", true).
 		Scan(&abilities).Error
 	return abilities, err
+}
+
+// IsModelOfferedInGroup reports whether an enabled or auto-disabled channel in
+// the group lists the model. Auto-disabled channels count because the health
+// checker can re-enable them, so a request for their models is a transient
+// failure. A model found only on manually disabled channels, or on none, is
+// not offered and requests for it will keep failing until an admin changes
+// the channel setup.
+func IsModelOfferedInGroup(group string, modelName string) (bool, error) {
+	if group == "" || modelName == "" {
+		return false, nil
+	}
+	names := []string{modelName}
+	if normalized := ratio_setting.RoutingMatchModelName(modelName); normalized != "" && normalized != modelName {
+		names = append(names, normalized)
+	}
+	var count int64
+	err := DB.Table("abilities").
+		Joins("JOIN channels ON channels.id = abilities.channel_id").
+		Where(clause.Eq{Column: clause.Column{Table: "abilities", Name: "group"}, Value: group}).
+		Where("abilities.model IN ? AND channels.status IN ?",
+			names, []int{common.ChannelStatusEnabled, common.ChannelStatusAutoDisabled}).
+		Count(&count).Error
+	if err != nil {
+		return false, fmt.Errorf("check model %q in group %q: %w", modelName, group, err)
+	}
+	return count > 0, nil
 }
 
 func GetGroupEnabledModels(group string) []string {

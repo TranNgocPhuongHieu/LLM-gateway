@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/TranNgocPhuongHieu/LLM-gateway/common"
@@ -8,6 +9,7 @@ import (
 	"github.com/TranNgocPhuongHieu/LLM-gateway/logger"
 	"github.com/TranNgocPhuongHieu/LLM-gateway/model"
 	"github.com/TranNgocPhuongHieu/LLM-gateway/relaykit/types"
+	"github.com/TranNgocPhuongHieu/LLM-gateway/service"
 	"github.com/gin-gonic/gin"
 )
 
@@ -64,12 +66,30 @@ func abortWithOpenAiMessage(c *gin.Context, statusCode int, message string, code
 	}
 	RecordEarlyRelayError(c, message, common.GetContextKeyBool(c, constant.ContextKeyIsStream))
 	userId := c.GetInt("id")
+	writeOpenAiError(c, statusCode, message, codeStr)
+	logger.LogError(c.Request.Context(), fmt.Sprintf("user %d | %s", userId, message))
+}
+
+// abortWithClientRejection answers a failure that retrying cannot fix, such
+// as a request for a model no channel offers. Clients often retry these in a
+// loop, so unlike abortWithOpenAiMessage it logs a warning and records an
+// error row at most once per user, code and model per window.
+func abortWithClientRejection(c *gin.Context, statusCode int, message string, code types.ErrorCode, modelName string) {
+	userId := c.GetInt("id")
+	if ok, suppressed := service.AllowClientRejectionLog(userId, code, modelName); ok {
+		RecordEarlyRelayError(c, message, common.GetContextKeyBool(c, constant.ContextKeyIsStream),
+			types.NewErrorWithStatusCode(errors.New(message), code, statusCode))
+		logger.LogWarn(c.Request.Context(), "user %d | %s (%d similar suppressed)", userId, message, suppressed)
+	}
+	writeOpenAiError(c, statusCode, message, string(code))
+}
+
+func writeOpenAiError(c *gin.Context, statusCode int, message string, code string) {
 	c.JSON(statusCode, gin.H{
 		"error": gin.H{
 			"message": common.MessageWithRequestId(message, c.GetString(common.RequestIdKey)),
-			"type":    "new_api_error", "code": codeStr,
+			"type":    "new_api_error", "code": code,
 		},
 	})
 	c.Abort()
-	logger.LogError(c.Request.Context(), fmt.Sprintf("user %d | %s", userId, message))
 }

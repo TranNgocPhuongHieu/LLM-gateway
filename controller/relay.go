@@ -94,10 +94,21 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 	defer func() {
 		if newAPIError != nil {
-			logger.LogError(c, fmt.Sprintf("relay error: %s", common.LocalLogPreview(newAPIError.Error())))
+			recordErrorLog := types.IsRecordErrorLog(newAPIError)
+			if service.IsBalanceRejection(newAPIError) {
+				// Clients retry empty-wallet rejections in a loop; log and record
+				// one per user and code per window instead of every attempt.
+				var suppressed int
+				recordErrorLog, suppressed = service.AllowClientRejectionLog(c.GetInt("id"), newAPIError.GetErrorCode(), "")
+				if recordErrorLog {
+					logger.LogWarn(c, "user %d | balance rejection: %s (%d similar suppressed)",
+						c.GetInt("id"), common.LocalLogPreview(newAPIError.Error()), suppressed)
+				}
+			} else {
+				logger.LogError(c, fmt.Sprintf("relay error: %s", common.LocalLogPreview(newAPIError.Error())))
+			}
 			newAPIError.SetMessage(common.MessageWithRequestId(newAPIError.Error(), requestId))
-			if !terminalErrorRecorded && constant.ErrorLogEnabled &&
-				(types.IsRecordErrorLog(newAPIError) || shouldRecordBalanceRejection(c.GetInt("id"), newAPIError)) {
+			if !terminalErrorRecorded && constant.ErrorLogEnabled && recordErrorLog {
 				isStream := common.GetContextKeyBool(c, constant.ContextKeyIsStream)
 				if relayInfo != nil {
 					isStream = relayInfo.IsStream

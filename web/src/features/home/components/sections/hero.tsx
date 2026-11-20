@@ -43,7 +43,7 @@ export function Hero({ isAuthenticated = false }: { isAuthenticated?: boolean; c
           </div>
           <p className='text-muted-foreground mt-7 text-sm'>{t('Works with')}</p>
           <div className='mt-4 flex flex-wrap gap-2'>
-            {['Claude Code', 'Codex', 'Kilo Code', 'OpenClaw', 'Roo Code', 'Many more'].map((name) => <span key={name} className='rounded-full border px-4 py-2 text-sm hover:bg-muted'>{t(name)}</span>)}
+            {['Claude Code', 'Codex', 'Cursor', 'OpenCode', 'pi', 'OpenClaw', 'Hermes Agent'].map((name) => <span key={name} className='rounded-full border px-4 py-2 text-sm hover:bg-muted'>{t(name)}</span>)}
           </div>
         </div>
         <HeroTerminalDemo />

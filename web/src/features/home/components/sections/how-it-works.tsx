@@ -23,7 +23,7 @@ export function HowItWorks() {
   const { t } = useTranslation()
   const steps = [
     ['Configure', 'Tạo tài khoản, kiểm tra số dư rồi tạo và bật API key.'],
-    ['Connect', 'Kết nối Codex, Claude Code, Kilo Code hoặc Roo Code theo hướng dẫn.'],
+    ['Connect', 'Kết nối Claude Code, Codex, Cursor, OpenCode, pi, OpenClaw hoặc Hermes Agent theo hướng dẫn.'],
     ['Monitor', 'Theo dõi mức sử dụng, chi phí và hiệu suất theo thời gian thực.'],
   ]
   return (

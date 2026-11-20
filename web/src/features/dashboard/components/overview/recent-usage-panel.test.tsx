@@ -102,6 +102,7 @@ describe("dashboard usage and settled balance", () => {
   it("allows only the owner role to see channel and global logs", async () => {
     mount(100);
     expect((await screen.findAllByText("model-test")).length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "Usage logs" })).toBeTruthy();
     expect(mocks.all).toHaveBeenCalledWith({ p: 1, page_size: 10 });
     expect(mocks.self).not.toHaveBeenCalled();
     expect(screen.queryByText("private-channel")).toBeNull();
@@ -110,6 +111,7 @@ describe("dashboard usage and settled balance", () => {
   it("limits global logs to the page range when one is given", async () => {
     mount(100, 1, { start_timestamp: 1000, end_timestamp: 5000 });
     expect((await screen.findAllByText("model-test")).length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "Recent requests" })).toBeTruthy();
     expect(mocks.all).toHaveBeenCalledWith({
       p: 1,
       page_size: 10,

@@ -48,17 +48,20 @@ vi.mock('../../../api', () => ({
   getAdminErrorSummary: mocks.errorSummary,
   getUserQuotaDates: mocks.quotaDates,
 }))
-vi.mock('../../models/consumption-distribution-chart', () => ({
-  ConsumptionDistributionChart: () => <div>quota-distribution</div>,
-}))
 vi.mock('../admin-usage-tracking-card', () => ({
   AdminUsageTrackingCard: (props: { excludeInternal?: boolean }) => (
     <div>usage-tracking exclude={String(props.excludeInternal)}</div>
   ),
 }))
 vi.mock('../recent-usage-panel', () => ({
-  RecentUsagePanel: (props: { range?: { start_timestamp: number } | null }) => (
-    <div>recent-usage from={props.range?.start_timestamp ?? 'all'}</div>
+  RecentUsagePanel: (props: {
+    range?: { start_timestamp: number } | null
+    limit?: number
+  }) => (
+    <div>
+      recent-usage from={props.range?.start_timestamp ?? 'all'} limit=
+      {props.limit}
+    </div>
   ),
 }))
 vi.mock('@/stores/auth-store', () => {
@@ -143,22 +146,25 @@ describe('AdminOverview', () => {
     expect(screen.getByText('1,700 credit')).toBeTruthy()
     expect(screen.queryByText('1,950 credit')).toBeNull()
     expect(screen.queryByText(/975,000,000/)).toBeNull()
-    expect(screen.getByText('≈ 1,700,000 VND')).toBeTruthy()
     expect(screen.getByText('+ 250 credit bonus granted')).toBeTruthy()
     expect(screen.getByText('SePay 1,200,000 VND')).toBeTruthy()
     expect(screen.getByText('USDT 50')).toBeTruthy()
 
-    expect(screen.getByText('12')).toBeTruthy()
-    const pending = screen.getByText('3 pending').closest('a')
-    expect(pending?.getAttribute('href')).toBe('/topup-management')
+    expect(screen.getByText('≈ 1,700,000 VND · 12 orders')).toBeTruthy()
 
-    expect(screen.getByText('40')).toBeTruthy()
-    expect(screen.getByText('9 via Google')).toBeTruthy()
-    expect(screen.getByText('Granted 10 credit at signup')).toBeTruthy()
+    // Pending top-ups are a prominent banner linking to the review page.
+    const banner = screen.getByText('3 top-up orders need review').closest('a')
+    expect(banner?.getAttribute('href')).toBe('/topup-management')
+
+    expect(screen.getByText('Credits customers used')).toBeTruthy()
+    expect(screen.getByText('100 credit')).toBeTruthy()
 
     expect(screen.getByText('77')).toBeTruthy()
+    expect(screen.getByText('40 new signups (9 via Google)')).toBeTruthy()
+    expect(screen.getByText('Granted 10 credit at signup')).toBeTruthy()
+
     expect(screen.getByText('2,000')).toBeTruthy()
-    expect(screen.getByText('Error rate 2.5%')).toBeTruthy()
+    expect(screen.getByText(/Error rate 2\.5%/).className).not.toContain('text-destructive')
 
     expect(mocks.summary).toHaveBeenCalledWith({
       start_timestamp: Math.floor(range.start.getTime() / 1000),
@@ -199,7 +205,7 @@ describe('AdminOverview', () => {
 
     expect(
       await screen.findByText(
-        `recent-usage from=${Math.floor(range.start.getTime() / 1000)}`
+        `recent-usage from=${Math.floor(range.start.getTime() / 1000)} limit=5`
       )
     ).toBeTruthy()
   })
@@ -224,7 +230,69 @@ describe('AdminOverview', () => {
     ).toBeTruthy()
   })
 
-  it('hides the pending link when no top-ups are waiting', async () => {
+  it('shows top-up revenue as VND / 1,000 credits with a custom display currency', async () => {
+    // Production display: CUSTOM currency at 26,000. Quota values go through
+    // the currency rate, but order VND must stay 1 credit = 1,000 VND.
+    useSystemConfigStore.getState().setConfig({
+      currency: { ...DEFAULT_CURRENCY_CONFIG },
+    })
+    renderOverview()
+
+    expect(await screen.findByText('1,700 credit')).toBeTruthy()
+    expect(screen.getByText('+ 250 credit bonus granted')).toBeTruthy()
+    expect(screen.queryByText(/44,200/)).toBeNull()
+  })
+
+  it('caps very large period changes', async () => {
+    const currentStart = Math.floor(range.start.getTime() / 1000)
+    mocks.summary.mockImplementation(async (params: { start_timestamp: number }) => ({
+      success: true,
+      data:
+        params.start_timestamp === currentStart
+          ? summaryData
+          : { ...summaryData, requests: { total: 10, errors: 0 } },
+    }))
+    renderOverview()
+
+    // 2,000 vs 10 requests = +19,900%.
+    expect(await screen.findByText('▲ >999%')).toBeTruthy()
+  })
+
+  it('compares each KPI with the previous period and flags a high error rate', async () => {
+    const currentStart = Math.floor(range.start.getTime() / 1000)
+    mocks.summary.mockImplementation(async (params: { start_timestamp: number }) => ({
+      success: true,
+      data:
+        params.start_timestamp === currentStart
+          ? { ...summaryData, requests: { total: 2000, errors: 120 } }
+          : {
+              ...summaryData,
+              topup: { ...summaryData.topup, paid_vnd: 2_000_000 },
+              users: { ...summaryData.users, active_users: 70 },
+              requests: { total: 1600, errors: 10 },
+              usage: { consumed_quota: 0 },
+            },
+    }))
+    renderOverview()
+
+    // 1.7M vs 2M paid, 77 vs 70 active, 2,000 vs 1,600 requests.
+    expect(await screen.findByText('▼ 15%')).toBeTruthy()
+    expect(screen.getByText('▲ 10%')).toBeTruthy()
+    expect(screen.getByText('▲ 25%')).toBeTruthy()
+    // No consumption in the previous period: no percentage.
+    expect(screen.getAllByText(/[▲▼]/)).toHaveLength(3)
+    // The previous window is the same clock window one day earlier.
+    expect(mocks.summary).toHaveBeenCalledWith(
+      expect.objectContaining({
+        start_timestamp: currentStart - 24 * 60 * 60,
+        end_timestamp: Math.floor(range.end.getTime() / 1000) - 24 * 60 * 60,
+      })
+    )
+    // 120 / 2,000 = 6% is above the 5% alert threshold.
+    expect(screen.getByText(/Error rate 6%/).className).toContain('text-destructive')
+  })
+
+  it('hides the pending banner when no top-ups are waiting', async () => {
     mocks.summary.mockResolvedValue({
       success: true,
       data: { ...summaryData, topup: { ...summaryData.topup, pending_count: 0 } },
@@ -232,8 +300,7 @@ describe('AdminOverview', () => {
     renderOverview()
 
     expect(await screen.findByText('1,700 credit')).toBeTruthy()
-    expect(screen.queryByText('0 pending')).toBeNull()
-    expect(screen.queryByText(/pending/)).toBeNull()
+    expect(screen.queryByText(/need review/)).toBeNull()
   })
 
   it('shows a system summary error without customer content', async () => {
@@ -256,12 +323,13 @@ describe('AdminOverview', () => {
     )
   })
 
-  it('links to model analytics instead of rendering model charts', async () => {
+  it('links to model analytics and drops the duplicate distribution chart', async () => {
     renderOverview()
 
     const link = await screen.findByText('View model call analytics on the Models tab')
     expect(link.closest('a')?.getAttribute('href')).toBe('/dashboard/$section')
-    expect(screen.getByText('quota-distribution')).toBeTruthy()
+    expect(screen.getByText('Credits consumed')).toBeTruthy()
+    expect(screen.queryByText('Quota Distribution')).toBeNull()
     expect(screen.getByText(/^usage-tracking/)).toBeTruthy()
     expect(screen.getByText(/^recent-usage/)).toBeTruthy()
   })

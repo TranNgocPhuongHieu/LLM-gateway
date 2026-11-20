@@ -123,6 +123,27 @@ export function resolvePresetRange(
   }
 }
 
+// The comparison period for a range: the same clock window shifted back by
+// the number of local days the range covers. Today 00:00-14:30 compares with
+// yesterday 00:00-14:30; the last 7 days compare with the 7 days before.
+export function previousComparableRange(range: TimeRange): TimeRange {
+  const days =
+    Math.round(
+      (startOfLocalDay(range.end).getTime() -
+        startOfLocalDay(range.start).getTime()) /
+        DAY_MS
+    ) + 1
+  return {
+    start: addLocalDays(range.start, -days),
+    end: addLocalDays(range.end, -days),
+  }
+}
+
+// True when the whole range falls on one local calendar day.
+export function isSingleLocalDay(range: TimeRange): boolean {
+  return toLocalDateKey(range.start) === toLocalDateKey(range.end)
+}
+
 // Validates a custom inclusive day range and returns it as a TimeRange whose
 // end is the end of the last selected day, capped at `now`.
 export function resolveCustomRange(

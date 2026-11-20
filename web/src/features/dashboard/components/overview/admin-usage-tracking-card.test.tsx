@@ -70,21 +70,23 @@ afterEach(() => {
 })
 
 describe('AdminUsageTrackingCard', () => {
-  it('shows credits, never raw quota units, in totals, bars and the table', async () => {
+  it('ranks customers in credits, never raw quota units', async () => {
     renderCard()
 
-    // 37,458,114 + 250,000 = 37,708,114 quota = 75.42 credits
-    expect(await screen.findByText('75.42 credit')).toBeTruthy()
-    expect(screen.getAllByText('74.92 credit').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('0.5 credit').length).toBeGreaterThan(0)
+    expect(await screen.findByText('Top customers')).toBeTruthy()
+    expect((await screen.findAllByText(/74\.92 credit/)).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/0\.5 credit/).length).toBeGreaterThan(0)
     expect(screen.queryByText(/37,458,114/)).toBeNull()
     expect(screen.queryByText(/37,708,114/)).toBeNull()
+    const names = screen.getAllByRole('listitem').map((item) => item.textContent ?? '')
+    expect(names[0]).toContain('alice')
+    expect(names[1]).toContain('bob')
   })
 
   it('follows the page range and hides internal accounts', async () => {
     renderCard()
 
-    await screen.findByText('75.42 credit')
+    await screen.findAllByText(/74\.92 credit/)
     expect(mocks.flow).toHaveBeenCalledWith(
       {
         start_timestamp: Math.floor(range.start.getTime() / 1000),
@@ -96,7 +98,7 @@ describe('AdminUsageTrackingCard', () => {
     expect(screen.queryByText(/days/)).toBeNull()
   })
 
-  it('totals every row, not only the rows shown in the top list', async () => {
+  it('computes shares from every row, not only the rows shown', async () => {
     mocks.flow.mockResolvedValue({
       success: true,
       data: Array.from({ length: 12 }, (_, index) => ({
@@ -110,9 +112,8 @@ describe('AdminUsageTrackingCard', () => {
     })
     renderCard()
 
-    // 12 rows x 1 credit, although only the top 10 users are drawn.
-    expect(await screen.findByText('12 credit')).toBeTruthy()
-    expect(screen.getByText('12')).toBeTruthy()
-    expect(screen.queryByText('user-11')).toBeNull()
+    // 12 equal customers: each is 1/12 = 8%, although only the top 10 are drawn.
+    expect((await screen.findAllByText(/· 8%/)).length).toBe(10)
+    expect(screen.getAllByRole('listitem')).toHaveLength(10)
   })
 })

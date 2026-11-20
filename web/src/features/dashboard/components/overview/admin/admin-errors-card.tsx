@@ -74,7 +74,7 @@ export function AdminErrorsCard(props: {
           {t('System errors')}
         </h2>
         <p className='text-muted-foreground text-xs'>
-          {t('All customers, grouped by cause for the selected period')}
+          {t('Grouped by cause, from the latest 5,000 errors in the selected period')}
         </p>
       </div>
       <div className='mt-3'>{body}</div>

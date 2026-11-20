@@ -4,6 +4,7 @@ import {
   averageDailyQuota,
   buildDailyCostSeries,
   computeSpendKpis,
+  listLocalHours,
   getBreakdownRows,
   getHealthLevel,
   percentChange,
@@ -11,7 +12,9 @@ import {
   sharePercent,
 } from './overview-metrics'
 import {
+  isSingleLocalDay,
   parseLocalDateKey,
+  previousComparableRange,
   resolveCustomRange,
   resolveMonthComparison,
   resolvePresetRange,
@@ -222,5 +225,49 @@ describe('daily cost series', () => {
     expect(cell('2026-11-02', 'Other')).toBeCloseTo((100000 + 50000 + 25000 + 10000) / 500000)
     expect(cell('2026-11-03', 'a')).toBe(0)
     expect(series.totalCredits).toBeCloseTo((500000 * 2 + 250000 + 185000) / 500000)
+  })
+})
+
+describe('admin chart helpers', () => {
+  it('buckets by local hour inside the range only', () => {
+    const range = { start: local(2026, 11, 21, 0), end: local(2026, 11, 21, 2, 30) }
+    expect(listLocalHours(range)).toEqual(['2026-11-21 00', '2026-11-21 01', '2026-11-21 02'])
+
+    const ts = (h: number, min = 0) => Math.floor(local(2026, 11, 21, h, min).getTime() / 1000)
+    const yesterday = Math.floor(local(2026, 11, 20, 23).getTime() / 1000)
+    const series = buildDailyCostSeries(
+      [
+        { created_at: ts(0, 10), model_name: 'a', quota: 500000 },
+        { created_at: ts(2, 5), model_name: 'a', quota: 1000000 },
+        { created_at: yesterday, model_name: 'a', quota: 999999 },
+      ],
+      range,
+      {
+        topN: 5,
+        otherLabel: 'Other',
+        unknownModelLabel: '-',
+        toCredits: (quota) => quota / 500000,
+        granularity: 'hour',
+      }
+    )
+    // No padded hours from yesterday, and yesterday's row is ignored.
+    expect(series.days).toEqual(['2026-11-21 00', '2026-11-21 01', '2026-11-21 02'])
+    expect(series.totalCredits).toBeCloseTo(3)
+    expect(series.points.map((p) => p.credits)).toEqual([1, 0, 2])
+  })
+
+  it('compares with the same clock window one period earlier', () => {
+    const today = { start: local(2026, 11, 21), end: local(2026, 11, 21, 14, 30) }
+    expect(previousComparableRange(today)).toEqual({
+      start: local(2026, 11, 20),
+      end: local(2026, 11, 20, 14, 30),
+    })
+    const week = { start: local(2026, 11, 15), end: local(2026, 11, 21, 9) }
+    expect(previousComparableRange(week)).toEqual({
+      start: local(2026, 11, 8),
+      end: local(2026, 11, 14, 9),
+    })
+    expect(isSingleLocalDay(today)).toBe(true)
+    expect(isSingleLocalDay(week)).toBe(false)
   })
 })

@@ -169,6 +169,8 @@ export interface DailyCostOptions {
   otherLabel: string
   unknownModelLabel: string
   toCredits: (quota: number) => number
+  // 'hour' buckets by local hour ("YYYY-MM-DD HH") instead of local day.
+  granularity?: 'day' | 'hour'
 }
 
 export function listLocalDays(range: TimeRange): string[] {
@@ -186,12 +188,35 @@ export function listLocalDays(range: TimeRange): string[] {
   return days
 }
 
+function toLocalHourKey(date: Date): string {
+  return `${toLocalDateKey(date)} ${String(date.getHours()).padStart(2, '0')}`
+}
+
+// Local hour buckets from the range start to its end, both inclusive. Only
+// hours inside the range are listed, so a "Today" chart never shows yesterday.
+export function listLocalHours(range: TimeRange): string[] {
+  const hours: string[] = []
+  const cursor = new Date(range.start)
+  cursor.setMinutes(0, 0, 0)
+  const last = toLocalHourKey(range.end)
+  // Bounded loop: hourly charts cover about one day; the guard prevents runaway.
+  for (let guard = 0; guard < 800; guard++) {
+    const key = toLocalHourKey(cursor)
+    hours.push(key)
+    if (key === last || cursor >= range.end) break
+    cursor.setHours(cursor.getHours() + 1)
+  }
+  return hours
+}
+
 export function buildDailyCostSeries(
   rows: QuotaDataItem[],
   range: TimeRange,
   options: DailyCostOptions
 ): DailyCostSeries {
-  const days = listLocalDays(range)
+  const hourly = options.granularity === 'hour'
+  const days = hourly ? listLocalHours(range) : listLocalDays(range)
+  const bucketKey = hourly ? toLocalHourKey : toLocalDateKey
   const dayIndex = new Set(days)
   const perModel = new Map<string, number>()
   const perDayModel = new Map<string, number>()
@@ -200,7 +225,7 @@ export function buildDailyCostSeries(
   for (const row of rows) {
     const quota = Number(row.quota) || 0
     if (quota === 0 || !Number.isFinite(Number(row.created_at))) continue
-    const day = toLocalDateKey(new Date(Number(row.created_at) * 1000))
+    const day = bucketKey(new Date(Number(row.created_at) * 1000))
     if (!dayIndex.has(day)) continue
     const model = row.model_name || options.unknownModelLabel
     perModel.set(model, (perModel.get(model) ?? 0) + quota)

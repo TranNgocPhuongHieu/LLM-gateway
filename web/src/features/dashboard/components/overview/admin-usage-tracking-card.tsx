@@ -75,21 +75,22 @@ export function AdminUsageTrackingCard(props: {
   const chartMax = Math.max(...chartRows.map((row) => row.quota), 1)
   const allRows = query.data ?? []
   const totalQuota = allRows.reduce((sum, row) => sum + Number(row.quota ?? 0), 0)
-  const totalRequests = allRows.reduce((sum, row) => sum + Number(row.count ?? 0), 0)
   const detailRows = allRows.slice(0, limit)
 
   if (!canView) return null
 
   return (
-    <section className='bg-card overflow-hidden rounded-2xl border shadow-xs'>
+    <section className='bg-card min-w-0 overflow-hidden rounded-2xl border shadow-xs'>
       <div className='flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 sm:px-5'>
         <div className='flex items-center gap-2'>
           <div className='bg-primary/10 text-primary flex size-8 items-center justify-center rounded-lg'>
             <KeyRound className='size-4' aria-hidden='true' />
           </div>
           <div>
-            <h2 className='text-sm font-semibold'>{t('Admin usage tracking')}</h2>
-            <p className='text-muted-foreground text-xs'>{t('User · API key · model')}</p>
+            <h2 className='text-sm font-semibold'>{t('Top customers')}</h2>
+            <p className='text-muted-foreground text-xs'>
+              {t('By credits used in the selected period')}
+            </p>
           </div>
         </div>
         <Button
@@ -115,39 +116,40 @@ export function AdminUsageTrackingCard(props: {
         </div>
       )}
 
-      <div className='grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_12rem] sm:p-5'>
-        <div className='min-w-0 space-y-3'>
-          <div className='text-muted-foreground flex items-center justify-between text-xs'>
-            <span>{t('Credit usage by user')}</span>
+      <div className='p-4 sm:p-5'>
+        {query.isLoading ? (
+          <div className='bg-muted h-40 animate-pulse rounded-xl' />
+        ) : chartRows.length === 0 ? (
+          <div className='text-muted-foreground flex h-40 items-center justify-center rounded-xl border text-sm'>
+            {t('No API key usage in this range')}
           </div>
-          {query.isLoading ? (
-            <div className='bg-muted h-40 animate-pulse rounded-xl' />
-          ) : chartRows.length === 0 ? (
-            <div className='text-muted-foreground flex h-40 items-center justify-center rounded-xl border text-sm'>
-              {t('No API key usage in this range')}
-            </div>
-          ) : (
-            <div className='flex h-40 items-end gap-2 overflow-x-auto border-b px-2 pb-0'>
-              {chartRows.map((row) => (
-                <div key={row.name} className='flex h-full min-w-14 flex-1 flex-col items-center justify-end gap-1'>
-                  <span className='text-muted-foreground text-[10px] tabular-nums'>{formatCredits(row.quota)}</span>
-                  <div className='bg-primary/80 hover:bg-primary w-full min-w-8 rounded-t-md transition-colors' style={{ height: `${Math.max((row.quota / chartMax) * 100, 4)}%` }} title={`${row.name}: ${formatCredits(row.quota)}`} />
-                  <span className='text-muted-foreground max-w-20 truncate text-[10px]' title={row.name}>{row.name}</span>
+        ) : (
+          <ol className='flex flex-col gap-2.5'>
+            {chartRows.map((row, index) => (
+              <li key={row.name} className='flex flex-col gap-1'>
+                <div className='flex items-baseline justify-between gap-3 text-sm'>
+                  <span className='flex min-w-0 items-baseline gap-2'>
+                    <span className='text-muted-foreground w-5 shrink-0 text-xs tabular-nums'>{index + 1}</span>
+                    <span className='truncate font-medium' title={row.name}>{row.name}</span>
+                  </span>
+                  <span className='shrink-0 text-right tabular-nums'>
+                    {formatCredits(row.quota)}
+                    <span className='text-muted-foreground ml-2 text-xs'>
+                      {t('{{count}} req', { count: row.requests.toLocaleString() })}
+                      {totalQuota > 0 ? ` · ${Math.round((row.quota / totalQuota) * 100)}%` : ''}
+                    </span>
+                  </span>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className='grid grid-cols-2 gap-2 sm:grid-cols-1'>
-          <div className='bg-muted/20 rounded-xl border p-3'>
-            <div className='text-muted-foreground text-xs'>{t('Credits used')}</div>
-            <div className='mt-1 text-xl font-semibold tabular-nums'>{formatCredits(totalQuota)}</div>
-          </div>
-          <div className='bg-muted/20 rounded-xl border p-3'>
-            <div className='text-muted-foreground text-xs'>{t('Requests')}</div>
-            <div className='mt-1 text-xl font-semibold tabular-nums'>{totalRequests.toLocaleString()}</div>
-          </div>
-        </div>
+                <div className='bg-muted h-1.5 overflow-hidden rounded-full'>
+                  <div
+                    className='bg-primary/80 h-full rounded-full'
+                    style={{ width: `${Math.max((row.quota / chartMax) * 100, 2)}%` }}
+                  />
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
       </div>
 
       <details className='border-t'>

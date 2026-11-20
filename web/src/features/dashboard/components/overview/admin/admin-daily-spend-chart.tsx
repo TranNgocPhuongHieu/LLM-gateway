@@ -6,14 +6,32 @@ import { quotaUnitsToDollars } from '@/lib/format'
 import { useChartTheme } from '@/lib/use-chart-theme'
 import { VChart, VCHART_OPTION, type ISpec } from '@/lib/vchart'
 
+import { getDashboardChartColors } from '../../../lib/charts'
+
 import { buildDailyCostSeries } from '../overview-metrics'
-import { toUnixRange, type TimeRange } from '../overview-time-range'
+import {
+  isSingleLocalDay,
+  toUnixRange,
+  type TimeRange,
+} from '../overview-time-range'
 import { useAdminHourlyUsage } from './use-admin-overview'
 
 const TOP_MODEL_COUNT = 5
+const OTHER_COLOR = '#94a3b8'
 
-// System-wide daily spend stacked by model. Same chart as the customer
-// "Daily cost" card, fed by all users' hourly rows.
+// A model keeps the same color in every range and view: the color comes from
+// its name, not from its rank. "Other" is always neutral gray.
+export function modelColor(model: string, otherLabel: string): string {
+  if (model === otherLabel) return OTHER_COLOR
+  const palette = getDashboardChartColors(10)
+  let hash = 0
+  for (const char of model) hash = (hash * 31 + char.charCodeAt(0)) >>> 0
+  return palette[hash % palette.length] ?? OTHER_COLOR
+}
+
+// Credits customers consumed, stacked by the top models plus "Other". A
+// single-day range is drawn per hour, longer ranges per day; only buckets
+// inside the selected range are drawn.
 export function AdminDailySpendChart(props: {
   range: TimeRange | null
   excludeInternal?: boolean
@@ -27,18 +45,21 @@ export function AdminDailySpendChart(props: {
     [range]
   )
   const query = useAdminHourlyUsage(unixRange, props.excludeInternal)
+  const hourly = range ? isSingleLocalDay(range) : false
+  const otherLabel = t('Other')
 
   const series = useMemo(
     () =>
       range && query.data
         ? buildDailyCostSeries(query.data, range, {
             topN: TOP_MODEL_COUNT,
-            otherLabel: t('Other'),
+            otherLabel,
             unknownModelLabel: '-',
             toCredits: quotaUnitsToDollars,
+            granularity: hourly ? 'hour' : 'day',
           })
         : null,
-    [query.data, range, t]
+    [query.data, range, otherLabel, hourly]
   )
 
   const spec = useMemo(() => {
@@ -49,12 +70,18 @@ export function AdminDailySpendChart(props: {
         {
           id: 'admin-daily-spend',
           values: series.points.map((point) => ({
-            day: point.day.slice(5),
+            // "YYYY-MM-DD HH" -> "HH:00"; "YYYY-MM-DD" -> "MM-DD".
+            day: hourly ? `${point.day.slice(11)}:00` : point.day.slice(5),
             series: point.series,
             credits: point.credits,
           })),
         },
       ],
+      color: {
+        type: 'ordinal',
+        domain: series.series,
+        range: series.series.map((name) => modelColor(name, otherLabel)),
+      },
       xField: 'day',
       yField: 'credits',
       seriesField: 'series',
@@ -74,7 +101,7 @@ export function AdminDailySpendChart(props: {
       ],
       background: 'transparent',
     }
-  }, [locale, series])
+  }, [locale, series, hourly, otherLabel])
 
   let body: React.ReactNode
   if (!range) {
@@ -106,7 +133,7 @@ export function AdminDailySpendChart(props: {
     <section className='bg-card min-w-0 rounded-2xl border p-4 shadow-xs sm:p-5'>
       <div className='flex flex-col gap-0.5'>
         <h2 className='text-sm font-semibold sm:text-base'>
-          {t('System daily cost')}
+          {t('Credits consumed')}
         </h2>
         <span className='text-muted-foreground text-xs tabular-nums'>
           {t('Total {{amount}}', {

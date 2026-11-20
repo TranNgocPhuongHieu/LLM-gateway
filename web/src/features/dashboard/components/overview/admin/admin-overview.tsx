@@ -4,14 +4,12 @@ import { useTranslation } from 'react-i18next'
 
 import { Switch } from '@/components/ui/switch'
 
-import { ConsumptionDistributionChart } from '../../models/consumption-distribution-chart'
 import { AdminUsageTrackingCard } from '../admin-usage-tracking-card'
 import { toUnixRange, type TimeRange } from '../overview-time-range'
 import { RecentUsagePanel } from '../recent-usage-panel'
 import { AdminDailySpendChart } from './admin-daily-spend-chart'
 import { AdminErrorsCard } from './admin-errors-card'
 import { AdminSummaryCards } from './admin-summary-cards'
-import { useAdminHourlyUsage } from './use-admin-overview'
 
 // Per-viewer preference; storage can be unavailable (private mode), so every
 // access is guarded and the default applies.
@@ -33,10 +31,11 @@ function writeExcludeInternal(value: boolean) {
   }
 }
 
-// Super admin Overview: every panel is system-wide and follows the same range
-// picker. Customer-only content (setup guide, own balance and spend) is not
-// rendered here. "Hide internal accounts" drops admin and root accounts from
-// usage figures; revenue and signups stay platform-wide.
+// Super admin Overview, top to bottom: pending top-up banner, four KPIs, the
+// credits-consumed chart, top customers next to error causes, and the latest
+// requests. Every panel is system-wide and follows the same range picker.
+// "Hide internal accounts" drops admin and root accounts from usage figures;
+// revenue and signups stay platform-wide.
 export function AdminOverview(props: { range: TimeRange | null }) {
   const { t } = useTranslation()
   const switchId = useId()
@@ -45,7 +44,6 @@ export function AdminOverview(props: { range: TimeRange | null }) {
     () => (props.range ? toUnixRange(props.range) : null),
     [props.range]
   )
-  const hourlyQuery = useAdminHourlyUsage(unixRange, excludeInternal)
 
   const handleExcludeInternalChange = (value: boolean) => {
     setExcludeInternal(value)
@@ -70,17 +68,11 @@ export function AdminOverview(props: { range: TimeRange | null }) {
       <AdminDailySpendChart range={props.range} excludeInternal={excludeInternal} />
 
       <div className='grid gap-4 lg:grid-cols-2'>
-        <ConsumptionDistributionChart
-          data={hourlyQuery.data ?? []}
-          loading={Boolean(unixRange) && hourlyQuery.isPending}
-          timeGranularity='hour'
-        />
+        <AdminUsageTrackingCard range={props.range} excludeInternal={excludeInternal} />
         <AdminErrorsCard range={props.range} excludeInternal={excludeInternal} />
       </div>
 
-      <AdminUsageTrackingCard range={props.range} excludeInternal={excludeInternal} />
-
-      <RecentUsagePanel range={unixRange} />
+      <RecentUsagePanel range={unixRange} limit={5} />
 
       <div className='flex justify-end'>
         <Link

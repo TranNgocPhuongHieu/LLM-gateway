@@ -8,7 +8,8 @@ import { RefreshCw } from "lucide-react";
 import { getAllLogs, getUserLogs } from "@/features/usage-logs/api";
 import { usageLogSchema } from "@/features/usage-logs/data/schema";
 import { getSelf, getUserModels } from "@/lib/api";
-import { formatLogQuota, formatTimestampToDate } from "@/lib/format";
+import { formatQuotaWithCredit } from "@/lib/currency";
+import { formatTimestampToDate } from "@/lib/format";
 import { ROLE } from "@/lib/roles";
 import { requireServerSuccess } from "@/lib/server-error-message";
 import { cn } from "@/lib/utils";
@@ -64,9 +65,17 @@ export function useDashboardBalance(enabled = true) {
   return query;
 }
 
-// range limits the list and its total to the page's period (admin Overview);
-// without it the panel shows the latest requests of all time.
-export function RecentUsagePanel(props: { range?: UnixRange | null } = {}) {
+// Overview rows show at most 4 decimals; the full logs page keeps 6.
+function formatRowQuota(quota: number): string {
+  return formatQuotaWithCredit(quota, { abbreviate: false, digitsLarge: 2, digitsSmall: 4 });
+}
+
+const DEFAULT_VISIBLE_ROWS = 6;
+
+// range limits the list and its total to the page's period (admin Overview,
+// titled "Recent requests"); without it the panel shows the latest requests of
+// all time. limit caps the visible rows.
+export function RecentUsagePanel(props: { range?: UnixRange | null; limit?: number } = {}) {
   const { t } = useTranslation();
   const userId = useAuthStore((state) => state.auth.user?.id);
   const sessionId = useAuthStore((state) => state.auth.session?.sid);
@@ -131,7 +140,7 @@ export function RecentUsagePanel(props: { range?: UnixRange | null } = {}) {
     retry: false,
   });
 
-  const visibleLogs = (query.data?.logs ?? []).slice(0, 6);
+  const visibleLogs = (query.data?.logs ?? []).slice(0, props.limit ?? DEFAULT_VISIBLE_ROWS);
   const totalCount = query.data?.total ?? visibleLogs.length;
   const modelOptions = Array.from(
     new Set([...(modelsQuery.data ?? []), ...(modelFilter ? [modelFilter] : [])]),
@@ -145,7 +154,9 @@ export function RecentUsagePanel(props: { range?: UnixRange | null } = {}) {
     <section className="bg-card min-w-0 space-y-4 rounded-2xl border p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold">{t("Usage logs")}</h2>
+          <h2 className="text-base font-semibold">
+            {props.range ? t("Recent requests") : t("Usage logs")}
+          </h2>
           <p className="text-muted-foreground mt-0.5 text-xs">
             {t("Usage history · automatic refresh is configurable")}
           </p>
@@ -255,7 +266,7 @@ export function RecentUsagePanel(props: { range?: UnixRange | null } = {}) {
                       {log.model_name || "—"}
                     </td>
                     <td className="px-2.5 py-3 text-right font-mono text-xs whitespace-nowrap tabular-nums">
-                      {formatLogQuota(log.quota)}
+                      {formatRowQuota(log.quota)}
                     </td>
                     <td className="px-2.5 py-3 whitespace-nowrap">
                       <span

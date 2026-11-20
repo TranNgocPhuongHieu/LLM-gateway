@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest'
 import {
   averageDailyQuota,
   buildDailyCostSeries,
-  computeSpendKpis,
   listLocalHours,
   getBreakdownRows,
   getHealthLevel,
@@ -65,34 +64,6 @@ describe('spend KPIs', () => {
     expect(getHealthLevel(200, 100)).toBe('critical') // 2 days
     expect(getHealthLevel(1000, 100)).toBe('caution') // 10 days
     expect(getHealthLevel(3000, 100)).toBe('healthy') // 30 days
-  })
-
-  it('combines inputs into KPI values', () => {
-    const kpis = computeSpendKpis({
-      balanceQuota: 1000, // 10 days of runway at 100/day
-      todayQuota: 40,
-      monthQuota: 300,
-      lastMonthSamePeriodQuota: 200,
-      last7DaysQuota: 700,
-      now: local(2026, 11, 19, 12),
-    })
-    expect(kpis.monthChangePct).toBeCloseTo(50)
-    expect(kpis.avgDailyQuota).toBe(100)
-    expect(kpis.health).toBe('caution')
-    expect(kpis.runOut.kind).toBe('date')
-  })
-
-  it('returns null change when last month is empty', () => {
-    const kpis = computeSpendKpis({
-      balanceQuota: 100,
-      todayQuota: 0,
-      monthQuota: 10,
-      lastMonthSamePeriodQuota: 0,
-      last7DaysQuota: 0,
-      now: local(2026, 11, 2),
-    })
-    expect(kpis.monthChangePct).toBeNull()
-    expect(kpis.runOut).toEqual({ kind: 'no-usage' })
   })
 })
 

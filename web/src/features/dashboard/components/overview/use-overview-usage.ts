@@ -21,9 +21,7 @@ import {
   BREAKDOWN_MAX_SPAN_SECONDS,
   SELF_DATA_MAX_SPAN_SECONDS,
   clampRangeSpan,
-  resolveMonthComparison,
   resolveRollingRange,
-  startOfLocalDay,
   splitUnixRange,
   toUnixRange,
   type UnixRange,
@@ -145,34 +143,28 @@ export function useSelfErrorSummary(range: UnixRange | null) {
   })
 }
 
-// Four model breakdowns feed the KPI row: today, this month, the same elapsed
-// period last month, and the trailing 7 days used for run-out projection.
+// Spend over the trailing 7 days, used for the balance runway projection and
+// the low-balance banner. Both callers share one cached query.
 export function useSpendKpiQueries(now: Date) {
   const { userId, sessionId } = useUserScope()
-  const periods = useMemo(() => {
-    const month = resolveMonthComparison(now)
-    return {
-      today: toUnixRange({ start: startOfLocalDay(now), end: now }),
-      month: toUnixRange(month.current),
-      lastMonth: toUnixRange(month.previous),
-      last7: toUnixRange(resolveRollingRange(AVERAGE_WINDOW_DAYS, now)),
-    }
-  }, [now])
-
-  const makeQuery = (name: keyof typeof periods) => ({
+  const last7 = useMemo(
+    () => toUnixRange(resolveRollingRange(AVERAGE_WINDOW_DAYS, now)),
+    [now]
+  )
+  const query = useQuery({
     queryKey: [
       'dashboard',
       'overview',
       'spend-kpi',
       userId,
       sessionId,
-      name,
-      periods[name].start_timestamp,
-      periods[name].end_timestamp,
+      'last7',
+      last7.start_timestamp,
+      last7.end_timestamp,
     ],
     enabled: Boolean(userId),
     queryFn: async () => {
-      const bounded = clampRangeSpan(periods[name], BREAKDOWN_MAX_SPAN_SECONDS)
+      const bounded = clampRangeSpan(last7, BREAKDOWN_MAX_SPAN_SECONDS)
       const result = requireServerSuccess(
         await getSelfUsageBreakdown({ ...bounded, group_by: 'model' })
       )
@@ -184,19 +176,10 @@ export function useSpendKpiQueries(now: Date) {
     meta: { errorToast: false },
   })
 
-  const today = useQuery(makeQuery('today'))
-  const month = useQuery(makeQuery('month'))
-  const lastMonth = useQuery(makeQuery('lastMonth'))
-  const last7 = useQuery(makeQuery('last7'))
-  const queries = [today, month, lastMonth, last7]
-
   return {
-    todayQuota: today.data,
-    monthQuota: month.data,
-    lastMonthSamePeriodQuota: lastMonth.data,
-    last7DaysQuota: last7.data,
-    isPending: queries.some((query) => query.isPending),
-    isError: queries.some((query) => query.isError),
+    last7DaysQuota: query.data,
+    isPending: query.isPending,
+    isError: query.isError,
   }
 }
 

@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 
 import type { AdminSummaryData, AdminTopupMethodStat } from '../../../types'
 import { VND_PER_CREDIT } from '../credit-vnd'
+import { KpiChange } from '../kpi-change'
 import { percentChange } from '../overview-metrics'
 import {
   previousComparableRange,
@@ -56,10 +57,6 @@ function formatMethodAmount(
 function formatVndAsCredits(vnd: number, locale: string): string {
   return `${formatNumber(vnd / VND_PER_CREDIT, locale)} credit`
 }
-
-// A rise beyond this means the previous period had almost no activity, so the
-// percentage says nothing useful: the badge reads "New" instead.
-const MAX_SHOWN_CHANGE_PERCENT = 999
 
 function errorRatePercent(requests: AdminSummaryData['requests']): number | null {
   return requests.total > 0 ? (requests.errors / requests.total) * 100 : null
@@ -220,8 +217,6 @@ function KpiCard(props: {
   change?: number | null
   children?: React.ReactNode
 }) {
-  const { t } = useTranslation()
-  const change = props.change
   return (
     <div className='bg-card flex min-w-0 flex-col gap-1.5 rounded-2xl border p-4 shadow-xs'>
       <div className='text-muted-foreground text-xs font-medium'>{props.label}</div>
@@ -229,19 +224,7 @@ function KpiCard(props: {
         <span className='text-xl font-semibold tabular-nums break-words'>
           {props.value}
         </span>
-        {change != null && Number.isFinite(change) && (
-          <span
-            className={cn(
-              'text-xs font-medium tabular-nums',
-              change >= 0 ? 'text-success' : 'text-destructive'
-            )}
-            title={t('Compared with the previous period')}
-          >
-            {change > MAX_SHOWN_CHANGE_PERCENT
-              ? t('New')
-              : `${change >= 0 ? '▲' : '▼'} ${formatPercent(Math.abs(change))}`}
-          </span>
-        )}
+        <KpiChange change={props.change} />
       </div>
       {props.children}
     </div>

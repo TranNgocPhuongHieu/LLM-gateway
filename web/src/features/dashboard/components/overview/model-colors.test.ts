@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { modelColors } from './admin-daily-spend-chart'
+import { modelColors } from './model-colors'
 
 describe('modelColors', () => {
   it('never gives two drawn models the same color', () => {

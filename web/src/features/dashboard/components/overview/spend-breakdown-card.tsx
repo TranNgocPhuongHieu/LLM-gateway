@@ -68,8 +68,11 @@ export function SpendBreakdownCard(props: { range: TimeRange | null }) {
                 <td className='px-2.5 py-2.5 text-right tabular-nums'>
                   {formatNumber(row.requests, locale)}
                 </td>
-                <td className='px-2.5 py-2.5 text-right tabular-nums'>
-                  {formatNumber(row.tokens, locale)}
+                <td
+                  className='px-2.5 py-2.5 text-right tabular-nums'
+                  title={formatNumber(row.tokens, locale)}
+                >
+                  {formatTokenCount(row.tokens, locale)}
                 </td>
                 <td className='px-2.5 py-2.5 text-right tabular-nums'>
                   {formatQuotaWithCredit(row.quota, CREDIT_FORMAT)}
@@ -116,6 +119,23 @@ export function SpendBreakdownCard(props: { range: TimeRange | null }) {
       <div className='mt-3'>{body}</div>
     </section>
   )
+}
+
+// Token totals get long (6,189,772), so they are shortened to K/M/B with up to
+// two decimals in the UI locale: 6.19M, "6,19M" in Vietnamese. The exact
+// number stays in the cell's title.
+export function formatTokenCount(tokens: number, locale: string): string {
+  const units: [number, string][] = [
+    [1e9, 'B'],
+    [1e6, 'M'],
+    [1e3, 'K'],
+  ]
+  for (const [size, suffix] of units) {
+    if (Math.abs(tokens) >= size) {
+      return `${Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(tokens / size)}${suffix}`
+    }
+  }
+  return formatNumber(tokens, locale)
 }
 
 // Share of total spend with one decimal, using the UI locale's separator.

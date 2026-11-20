@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { SpendBreakdownCard, formatShare } from './spend-breakdown-card'
+import { SpendBreakdownCard, formatShare, formatTokenCount } from './spend-breakdown-card'
 
 const mocks = vi.hoisted(() => ({ breakdown: vi.fn() }))
 // Stable t, as in binance-usdt-topup.test.tsx.
@@ -101,5 +101,15 @@ describe('formatShare', () => {
   it('uses the UI locale decimal separator', () => {
     expect(formatShare(49.94, 'vi')).toBe('49,9%')
     expect(formatShare(49.94, 'en')).toBe('49.9%')
+  })
+})
+
+describe('formatTokenCount', () => {
+  it('shortens large token totals with the locale decimal separator', () => {
+    expect(formatTokenCount(6_189_772, 'vi')).toBe('6,19M')
+    expect(formatTokenCount(6_189_772, 'en')).toBe('6.19M')
+    expect(formatTokenCount(12_500, 'en')).toBe('12.5K')
+    expect(formatTokenCount(2_000_000_000, 'en')).toBe('2B')
+    expect(formatTokenCount(999, 'en')).toBe('999')
   })
 })

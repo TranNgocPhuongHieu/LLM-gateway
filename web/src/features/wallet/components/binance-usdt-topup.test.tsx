@@ -72,7 +72,7 @@ describe("USDT checkout", () => {
       "Bonus tiers: from 20 USDT +10% · from 50 USDT +15% · from 100 USDT +20%",
     );
     const label = (name: string) => screen.getByRole("button", { name: new RegExp(`^${name} USDT`) }).textContent;
-    expect(label("10")).toBe("10 USDTNo bonus");
+    expect(label("10")).toBe("10 USDT");
     expect(label("20")).toBe("20 USDT+52 credit bonus");
     expect(label("50")).toBe("50 USDT+195 credit bonus");
     expect(label("100")).toBe("100 USDT+520 credit bonus");

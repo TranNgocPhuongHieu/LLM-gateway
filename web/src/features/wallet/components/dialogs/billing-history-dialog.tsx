@@ -191,10 +191,16 @@ export function BillingHistory({
               <div className="space-y-3">
                 {records.map((record) => {
                   const statusConfig = getStatusConfig(record.status);
+                  // Expired/cancelled orders never moved money: keep them
+                  // visible but quiet so paid orders stand out.
+                  const inactive = ["expired", "failed", "voided", "cancelled"].includes(String(record.status));
+                  const usdt = record.payment_provider === "binance" || record.payment_method.startsWith("binance_usdt");
+                  const numberFormat = new Intl.NumberFormat(i18n.resolvedLanguage || i18n.language);
                   return (
                     <div
                       key={record.id}
-                      className="rounded-lg border p-3 sm:p-4"
+                      data-inactive={inactive || undefined}
+                      className={`rounded-lg border p-3 sm:p-4 ${inactive ? "opacity-60" : ""}`}
                     >
                       {/* Header Row */}
                       <div className="flex items-start justify-between gap-2">
@@ -258,8 +264,10 @@ export function BillingHistory({
                           </Label>
                           <div className="text-sm font-semibold">
                             {record.payment_provider === "sepay"
-                              ? `${record.sepay?.credits ?? record.amount} credit`
-                              : formatCreditPrice(record.amount, {
+                              ? `${numberFormat.format(record.sepay?.credits ?? record.amount)} credit`
+                              : usdt
+                                ? `${numberFormat.format(record.amount)} credit`
+                                : formatCreditPrice(record.amount, {
                                   digitsLarge: 2,
                                   digitsSmall: 2,
                                   abbreviate: false,
@@ -270,10 +278,12 @@ export function BillingHistory({
                           <Label className="text-muted-foreground text-xs">
                             {t("Payment")}
                           </Label>
-                          <div className="text-sm font-semibold text-red-600">
+                          <div className="text-sm font-semibold">
                             {record.payment_provider === "sepay"
-                              ? `${new Intl.NumberFormat(i18n.resolvedLanguage || i18n.language).format(record.sepay?.amount_vnd ?? record.money)} VND`
-                              : formatFiatPayment(record.money)}
+                              ? `${numberFormat.format(record.sepay?.amount_vnd ?? record.money)} VND`
+                              : usdt && record.binance
+                                ? `${numberFormat.format(Number(record.binance.payable_amount_usdt || record.binance.amount_usdt))} USDT`
+                                : formatFiatPayment(record.money)}
                           </div>
                         </div>
                       </div>

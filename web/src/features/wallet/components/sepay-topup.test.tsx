@@ -62,6 +62,31 @@ describe("inline SePay bank QR top-up", () => {
     expect(preset("1\\.000\\.000")).toBe("1.000.000 VND+150 credit thưởng");
     expect(screen.queryByText("Không có thưởng")).toBeNull();
   });
+  it("defaults to 100k, formats typed amounts and hints the next tier", async () => {
+    mocks.get.mockResolvedValue({
+      data: { success: true, data: { enabled: true, bank_enabled: true } },
+    });
+    render(<SepayTopup userId={1} onPaid={() => {}} />);
+    await screen.findByRole("button", { name: "Tạo mã QR" });
+    const input = screen.getByLabelText("Hoặc nhập số tiền khác (VND)") as HTMLInputElement;
+    expect(input.value).toBe("100.000");
+    expect(screen.getByTestId("receive-total").textContent).toBe("105 credit");
+    expect(screen.getByTestId("receive-breakdown").textContent).toBe("100 + 5 thưởng (+5%)");
+    expect(screen.getByTestId("next-tier-hint").textContent).toBe(
+      "Nạp thêm 100.000 VND để được thưởng 7,5% (+15 credit).",
+    );
+    fireEvent.change(input, { target: { value: "150.0a00" } });
+    expect(input.value).toBe("150.000");
+    expect(screen.getByTestId("receive-total").textContent).toBe("157 credit");
+    fireEvent.change(input, { target: { value: "50000" } });
+    expect(screen.getByTestId("receive-total").textContent).toBe("50 credit");
+    expect(screen.getByTestId("next-tier-hint").textContent).toContain("Nạp thêm 50.000 VND");
+    fireEvent.change(input, { target: { value: "1000000" } });
+    expect(screen.queryByTestId("next-tier-hint")).toBeNull();
+    fireEvent.change(input, { target: { value: "" } });
+    expect(screen.getByTestId("receive-total").textContent).toBe("— credit");
+    expect(screen.getByRole("alert").textContent).toContain("Nhập số tiền từ 10.000");
+  });
   it("shows QR in the same page and polls for automatic credit", async () => {
     const onPaid = vi.fn();
     mocks.get.mockImplementation((path: string) =>

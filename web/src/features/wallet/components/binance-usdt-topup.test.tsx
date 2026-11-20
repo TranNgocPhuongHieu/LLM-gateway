@@ -71,11 +71,12 @@ describe("USDT checkout", () => {
     expect((await screen.findByTestId("usdt-bonus-tiers")).textContent).toBe(
       "Bonus tiers: from 20 USDT +10% · from 50 USDT +15% · from 100 USDT +20%",
     );
-    const label = (name: string) => screen.getByRole("button", { name: new RegExp(`^${name} USDT`) }).textContent;
+    const label = (name: string) =>
+      screen.getByRole("button", { name: new RegExp(`(^|[^0-9.])${name} USDT`) }).textContent;
     expect(label("10")).toBe("10 USDT");
-    expect(label("20")).toBe("20 USDT+52 credit bonus");
-    expect(label("50")).toBe("50 USDT+195 credit bonus");
-    expect(label("100")).toBe("100 USDT+520 credit bonus");
+    expect(label("20")).toBe("Phổ biến20 USDT+52 credit thưởng");
+    expect(label("50")).toBe("50 USDT+195 credit thưởng");
+    expect(label("100")).toBe("100 USDT+520 credit thưởng");
   });
 
   it("picks the bonus tier like the server", () => {
@@ -90,5 +91,39 @@ describe("USDT checkout", () => {
     expect(usdtBonusPercent(60, tiers)).toBe(0);
     expect(usdtBonusPercent(1000, tiers)).toBe(20);
     expect(usdtBonusPercent(30, [])).toBe(0);
+  });
+
+  it("defaults to the popular tier, emphasises the total and hints the next tier", async () => {
+    const tiers = [
+      { min_usdt: "10", max_usdt: "20", bonus_percent: "0" },
+      { min_usdt: "20", max_usdt: "50", bonus_percent: "10" },
+      { min_usdt: "50", bonus_percent: "15" },
+    ];
+    mocks.get.mockResolvedValue({
+      data: { success: true, data: { ...topupInfo.data.data, binance_usdt_to_vnd: "26000", binance_bonus_tiers: tiers } },
+    });
+    mocks.post.mockImplementation((_path: string, body: { amount_usdt: string }) =>
+      Promise.resolve({
+        data: {
+          success: true,
+          data:
+            body.amount_usdt === "20"
+              ? { fee_percent: "2", fee_usdt: "0.4", payable_usdt: "20.400000", usdt_to_vnd: "26000", bonus_percent: "10", amount_vnd: 520000, credits: 572 }
+              : { fee_percent: "2", fee_usdt: "0.3", payable_usdt: "15.300000", usdt_to_vnd: "26000", bonus_percent: "0", amount_vnd: 390000, credits: 390 },
+        },
+      }),
+    );
+    render(<BinanceUsdtTopup onPaid={() => {}} />);
+    await waitFor(() => expect(screen.getByTestId("receive-total").textContent).toBe("572 credit"));
+    expect(mocks.post).toHaveBeenCalledWith("/api/user/binance/quote", { amount_usdt: "20" });
+    expect(screen.getByTestId("receive-breakdown").textContent).toBe("520 + 52 thưởng (+10%)");
+    expect(screen.getByTestId("usdt-total").textContent).toBe("20,4 USDT");
+    expect(screen.queryByText("Bonus")).toBeNull();
+    expect(screen.getByTestId("next-tier-hint").textContent).toBe("Nạp thêm 30 USDT để được thưởng 15% (+195 credit).");
+
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "15" } });
+    await waitFor(() => expect(screen.getByTestId("receive-total").textContent).toBe("390 credit"));
+    expect(screen.queryByTestId("receive-breakdown")).toBeNull();
+    expect(screen.getByTestId("next-tier-hint").textContent).toBe("Nạp thêm 5 USDT để được thưởng 10% (+52 credit).");
   });
 });

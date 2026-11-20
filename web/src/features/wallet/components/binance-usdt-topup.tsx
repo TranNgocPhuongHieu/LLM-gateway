@@ -6,6 +6,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
+import { NextTierHint, PresetGrid, ReceiveSummary, TopupSteps, nextTier } from "./topup-parts";
 
 type Network = "BEP20" | "TRC20";
 type Quote = {
@@ -14,6 +15,7 @@ type Quote = {
   payable_usdt: string;
   usdt_to_vnd: string;
   bonus_percent: string;
+  amount_vnd: number;
   credits: number;
 };
 type BonusTier = { min_usdt: string; max_usdt?: string; bonus_percent: string };
@@ -53,7 +55,8 @@ const formatUsdt = (value: string | number, locale: string) => {
 export function BinanceUsdtTopup({ onPaid }: { onPaid: () => void }) {
   const { t, i18n } = useTranslation();
   const [network, setNetwork] = useState<Network>("BEP20");
-  const [amount, setAmount] = useState("10");
+  // Default to the popular tier so the bonus is visible on first load.
+  const [amount, setAmount] = useState("20");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoteError, setQuoteError] = useState("");
   const [order, setOrder] = useState<Order | null>(null);
@@ -68,7 +71,9 @@ export function BinanceUsdtTopup({ onPaid }: { onPaid: () => void }) {
   const [error, setError] = useState("");
   const [seconds, setSeconds] = useState(0);
   const notified = useRef("");
-  const locale = i18n.language.startsWith("vi") ? "vi-VN" : "en-US";
+  const vi = i18n.language.startsWith("vi");
+  const s = (vn: string, en: string) => (vi ? vn : en);
+  const locale = vi ? "vi-VN" : "en-US";
   const number = (value: string | number) => Number(value).toLocaleString(locale);
   const enabled = (item: Network) => config?.networks[item] === true;
   const statusLabel = (status: string) =>
@@ -202,17 +207,26 @@ export function BinanceUsdtTopup({ onPaid }: { onPaid: () => void }) {
     config?.rate
       ? Math.floor((Number(value) * config.rate * usdtBonusPercent(Number(value), tiers)) / 100 / 1000)
       : 0;
+  const tierSteps = tiers
+    .map((tier) => ({ min: Number(tier.min_usdt), percent: Number(tier.bonus_percent) || 0 }))
+    .sort((a, b) => a.min - b.min);
+  const amountNumber = Number(amount);
+  const upgrade =
+    quote && Number.isFinite(amountNumber)
+      ? nextTier(amountNumber, usdtBonusPercent(amountNumber, tiers), tierSteps, config ? Number(config.max) : undefined)
+      : null;
+  const baseCredits = quote ? Math.floor(quote.amount_vnd / 1000) : null;
 
   return (
-    <section className="grid gap-5 rounded-2xl border bg-card p-5 lg:grid-cols-2">
-      <div className="space-y-5">
+    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,.85fr)]">
+      <section className="space-y-5 rounded-2xl border bg-card p-5 sm:p-7">
         <div>
-          <h2 className="text-lg font-semibold">USDT</h2>
-          <p className="text-sm text-muted-foreground">
+          <h2 className="text-xl font-bold">{s("Nạp tiền bằng USDT", "Top up with USDT")}</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
             {t("Choose the amount and transfer network.")}
           </p>
           {bonusTiers.length > 0 && (
-            <p className="mt-1 text-sm text-emerald-600" data-testid="usdt-bonus-tiers">
+            <p className="mt-1 text-sm text-muted-foreground" data-testid="usdt-bonus-tiers">
               {t("Bonus tiers")}:{" "}
               {bonusTiers
                 .map((tier) => `${t("from")} ${formatUsdt(tier.min_usdt, locale)} USDT +${formatUsdt(tier.bonus_percent, locale)}%`)
@@ -220,23 +234,19 @@ export function BinanceUsdtTopup({ onPaid }: { onPaid: () => void }) {
             </p>
           )}
         </div>
-        <div className="flex flex-wrap gap-2">
-          {presets.map((value) => (
-            <Button
-              key={value}
-              type="button"
-              variant={amount === value ? "default" : "outline"}
-              onClick={() => setAmount(value)}
-              className="h-auto flex-col gap-0.5 py-2"
-            >
-              <span>{value} USDT</span>
-              {bonusCredits(value) > 0 && (
-                <span className="text-xs font-medium text-emerald-500">
-                  +{number(bonusCredits(value))} credit {t("bonus")}
-                </span>
-              )}
-            </Button>
-          ))}
+        <div className="-my-1">
+          <PresetGrid
+            vi={vi}
+            format={number}
+            selected={amount}
+            onSelect={setAmount}
+            presets={presets.map((value) => ({
+              value,
+              label: `${value} USDT`,
+              bonusCredits: bonusCredits(value),
+              popular: value === "20",
+            }))}
+          />
         </div>
         <label className="block text-sm font-medium">
           {t("USDT amount")}
@@ -275,28 +285,35 @@ export function BinanceUsdtTopup({ onPaid }: { onPaid: () => void }) {
             {t("Sending on the wrong network may result in permanent loss.")}
           </p>
         </div>
-        <div className="divide-y rounded-xl border bg-background/40 px-4">
-          {[
-            [t("Exchange rate"), quote ? `1 USDT = ${number(quote.usdt_to_vnd)} VND` : "—"],
-            [
-              t("Payment fee"),
-              quote
-                ? `${formatUsdt(quote.fee_percent, locale)}% (${formatUsdt(quote.fee_usdt, locale)} USDT)`
-                : "—",
-            ],
-            [
-              t("Total to send"),
-              quote ? `${formatUsdt(quote.payable_usdt, locale)} USDT` : "—",
-            ],
-            [t("Bonus"), quote ? `${quote.bonus_percent}%` : "—"],
-            [t("You receive"), quote ? `${number(quote.credits)} credit` : "—"],
-          ].map(([label, value]) => (
-            <div key={label} className="flex justify-between py-3 text-sm">
-              <span className="text-muted-foreground">{label}</span>
-              <strong>{value}</strong>
-            </div>
-          ))}
-        </div>
+        <ReceiveSummary
+          vi={vi}
+          format={number}
+          baseCredits={baseCredits}
+          bonusCredits={quote && baseCredits !== null ? quote.credits - baseCredits : 0}
+          bonusPercent={quote ? Number(quote.bonus_percent) || 0 : 0}
+          aside={
+            <>
+              <p className="text-xs text-muted-foreground">{t("Total to send")}</p>
+              <p className="mt-1 font-bold" data-testid="usdt-total">
+                {quote ? `${formatUsdt(quote.payable_usdt, locale)} USDT` : "—"}
+              </p>
+            </>
+          }
+        />
+        {quote && (
+          <p className="-mt-3 text-xs text-muted-foreground" data-testid="usdt-rate-fee">
+            {t("Exchange rate")} 1 USDT = {number(quote.usdt_to_vnd)} VND · {t("Payment fee")}{" "}
+            {formatUsdt(quote.fee_percent, locale)}% ({formatUsdt(quote.fee_usdt, locale)} USDT)
+          </p>
+        )}
+        {upgrade && (
+          <NextTierHint>
+            {s(
+              `Nạp thêm ${formatUsdt(String(Math.round((upgrade.min - amountNumber) * 100) / 100), locale)} USDT để được thưởng ${number(upgrade.percent)}% (+${number(bonusCredits(String(upgrade.min)))} credit).`,
+              `Add ${formatUsdt(String(Math.round((upgrade.min - amountNumber) * 100) / 100), locale)} USDT to get a ${number(upgrade.percent)}% bonus (+${number(bonusCredits(String(upgrade.min)))} credit).`,
+            )}
+          </NextTierHint>
+        )}
         {quoteError && <p className="text-sm text-destructive">{quoteError}</p>}
         <Button
           className="w-full"
@@ -307,8 +324,8 @@ export function BinanceUsdtTopup({ onPaid }: { onPaid: () => void }) {
           {t("Create USDT top-up order")}
         </Button>
         {error && <p className="text-sm text-destructive">{error}</p>}
-      </div>
-      <div className="min-h-[360px] rounded-2xl border bg-background/40 p-5">
+      </section>
+      <section className="rounded-2xl border bg-card p-5 sm:p-7" aria-live="polite">
         {order ? (
           <div className="space-y-4">
             <div className="flex items-start justify-between">
@@ -381,11 +398,29 @@ export function BinanceUsdtTopup({ onPaid }: { onPaid: () => void }) {
             </div>
           </div>
         ) : (
-          <div className="flex min-h-[320px] items-center justify-center text-center text-muted-foreground">
-            {t("Your top-up order details will appear here.")}
-          </div>
+          <TopupSteps
+            title={t("Your top-up order details will appear here.")}
+            steps={[
+              s(
+                "Chọn số USDT và mạng chuyển, rồi bấm “Tạo đơn nạp USDT”.",
+                "Choose the USDT amount and network, then create the order.",
+              ),
+              s(
+                "Gửi đúng số USDT hiển thị tới địa chỉ ví, đúng mạng đã chọn.",
+                "Send the exact USDT amount to the address on the selected network.",
+              ),
+              s(
+                "Credit tự cộng khi giao dịch được xác nhận, thường trong 1–3 phút.",
+                "Credits arrive automatically once confirmed, usually within 1–3 minutes.",
+              ),
+            ]}
+            footer={s(
+              "Sau 10 phút vẫn chưa thấy cộng? Gửi mã đơn trong Lịch sử nạp cho admin để được hỗ trợ.",
+              "Not credited after 10 minutes? Send the order number from Top-up History to the admin.",
+            )}
+          />
         )}
-      </div>
-    </section>
+      </section>
+    </div>
   );
 }

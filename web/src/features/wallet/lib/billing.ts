@@ -59,7 +59,9 @@ export function getStatusConfig(status: TopupStatus): StatusConfig {
  * Payment method display names
  */
 export const PAYMENT_METHOD_NAMES: Record<string, string> = {
-  sepay_bank_transfer: 'SePay QR',
+  sepay_bank_transfer: 'Bank QR',
+  binance_usdt_BEP20: 'USDT · BEP20',
+  binance_usdt_TRC20: 'USDT · TRC20',
   stripe: 'Stripe',
   alipay: 'Alipay',
   wxpay: 'WeChat Pay',

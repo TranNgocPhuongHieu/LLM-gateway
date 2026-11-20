@@ -135,4 +135,24 @@ describe("wallet cleanup preserves supported payment paths", () => {
     expect(screen.queryByRole('button', { name: 'Reconcile Payment' })).toBeNull();
     expect(screen.getByText('SePay will verify this payment automatically after IPN confirmation.')).toBeTruthy();
   });
+  it('shows USDT history in credits and USDT, quietly dims expired orders', async () => {
+    mocks.history.mockReturnValue({
+      records: [
+        { id: 2, user_id: 12, trade_no: 'BNpaid', payment_provider: 'binance', payment_method: 'binance_usdt_BEP20', amount: 858, money: 780000, status: 'success', create_time: 1795188415, binance: { amount_usdt: '30.600000', payable_amount_usdt: '30.600000', network: 'BEP20', status: 'paid' } },
+        { id: 3, user_id: 12, trade_no: 'BNexpired', payment_provider: 'binance', payment_method: 'binance_usdt_TRC20', amount: 260, money: 260000, status: 'expired', create_time: 1794996922, binance: { amount_usdt: '10.200001', network: 'TRC20', status: 'expired' } },
+      ],
+      total: 2, page: 1, pageSize: 10, keyword: '', loading: false, completing: false, isAdmin: false,
+      handlePageChange: vi.fn(), handlePageSizeChange: vi.fn(), handleSearch: vi.fn(), handleCompleteOrder: vi.fn(), refresh: vi.fn(),
+    });
+    const { BillingHistory } = await vi.importActual<typeof import('./components/dialogs/billing-history-dialog')>('./components/dialogs/billing-history-dialog');
+    const view = render(<BillingHistory />);
+    expect(screen.getByText('858 credit')).toBeTruthy();
+    expect(screen.getByText('260 credit')).toBeTruthy();
+    expect(screen.queryByText(/6[.,]760/)).toBeNull();
+    expect(screen.getByText('30,6 USDT')).toBeTruthy();
+    expect(screen.getByText('USDT · BEP20')).toBeTruthy();
+    expect(screen.getByText('USDT · TRC20')).toBeTruthy();
+    expect(view.container.querySelectorAll('[data-inactive]')).toHaveLength(1);
+    expect(view.container.querySelector('.text-red-600')).toBeNull();
+  });
 });

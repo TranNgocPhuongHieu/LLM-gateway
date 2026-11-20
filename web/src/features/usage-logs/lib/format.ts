@@ -321,6 +321,25 @@ export interface TieredBillingSummary {
 }
 
 /**
+ * Input tokens shown in usage logs, excluding cache reads.
+ *
+ * Anthropic-semantic logs already store prompt_tokens without cache reads.
+ * OpenAI/Gemini-semantic logs (e.g. GPT through an OpenAI-compatible channel)
+ * store cache-inclusive totals, so the cache read count is subtracted to keep
+ * the Input column meaning the same for every model. Billing is unaffected.
+ */
+export function uncachedInputTokens(
+  promptTokens: number | null | undefined,
+  other: LogOtherData | null | undefined
+): number {
+  const prompt = promptTokens || 0
+  if (other?.claude === true || other?.usage_semantic === 'anthropic') {
+    return prompt
+  }
+  return Math.max(0, prompt - (other?.cache_tokens || 0))
+}
+
+/**
  * Whether the request payload reports any cache-related token usage. Used to
  * suppress cache pricing rows from the tiered breakdown when the request did
  * not exercise the cache path.

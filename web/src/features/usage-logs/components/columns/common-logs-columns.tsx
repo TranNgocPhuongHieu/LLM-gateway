@@ -62,6 +62,7 @@ import {
   parseLogOther,
   isViolationFeeLog,
   renderAuditContent,
+  uncachedInputTokens,
 } from '../../lib/format'
 import {
   isDisplayableLogType,
@@ -771,10 +772,12 @@ export function useCommonLogsColumns(
           ? cacheWrite5m + cacheWrite1h
           : other?.cache_creation_tokens || 0
 
+        const inputTokens = uncachedInputTokens(promptTokens, other)
+
         return (
           <div className='flex flex-col gap-0.5'>
             <span className='font-mono text-xs font-medium tabular-nums'>
-              {promptTokens.toLocaleString()} /{' '}
+              {inputTokens.toLocaleString()} /{' '}
               {completionTokens.toLocaleString()}
             </span>
             {(cacheReadTokens > 0 || cacheWriteTokens > 0) && (

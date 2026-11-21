@@ -382,12 +382,14 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 	if relayInfo.ChannelMeta != nil && relayInfo.ChannelType == constant.ChannelTypeOpenRouter && billingUsage != nil && billingUsage.BillingUsage == nil {
 		separateInput = false
 	}
-	billingUsage = inputOnlyCacheWriteUsage(billingUsage, separateInput)
+	// Affinity cache stats must not count cache writes as cache hits.
+	affinityUsage := inputOnlyCacheWriteUsage(billingUsage, separateInput)
+	billingUsage = cacheWriteAsCacheReadUsage(billingUsage, separateInput)
 	if usage == nil {
 		extraContent = append(extraContent, "上游无计费信息")
 	}
 	if originUsage != nil {
-		ObserveChannelAffinityUsageCacheByRelayFormat(ctx, billingUsage, relayInfo.GetFinalRequestRelayFormat())
+		ObserveChannelAffinityUsageCacheByRelayFormat(ctx, affinityUsage, relayInfo.GetFinalRequestRelayFormat())
 	}
 
 	adminRejectReason := common.GetContextKeyString(ctx, constant.ContextKeyAdminRejectReason)
